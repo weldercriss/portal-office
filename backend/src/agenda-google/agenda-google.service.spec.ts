@@ -2,15 +2,14 @@ import { AgendaGoogleAutorizacaoPerdida } from './agenda-google-oauth.service';
 import { AgendaGoogleService, montarEvento } from './agenda-google.service';
 import { eventIdDeterministico } from './google-calendar.client';
 
-const TURNO_DIURNO = { nome: 'Manhã', horaInicio: '08:00', horaFim: '17:00' };
+const TIPO_MANHA = { nome: 'Sobreaviso', horaInicio: '08:00', horaFim: '17:00' };
 
 const PLANTAO_BASE = {
   id: 'p1',
   nome: null as string | null,
   data: new Date('2026-09-10T00:00:00.000Z'),
   status: 'PUBLICADO',
-  turno: TURNO_DIURNO,
-  tipoPlantao: { nome: 'Sobreaviso' },
+  tipoPlantao: TIPO_MANHA,
   user: { id: 'u1', nome: 'Ana', email: 'ana@empresa.com', ativo: true, agendaGoogleAtiva: true },
 };
 
@@ -25,7 +24,7 @@ describe('montarEvento', () => {
     delete process.env.APP_PUBLIC_URL;
   });
 
-  it('usa o horário do turno no fuso configurado', () => {
+  it('usa o horário do tipo de plantão no fuso configurado', () => {
     const evento = montarEvento(PLANTAO_BASE);
     expect(evento.start).toEqual({ dateTime: '2026-09-10T08:00:00', timeZone: 'America/Sao_Paulo' });
     expect(evento.end).toEqual({ dateTime: '2026-09-10T17:00:00', timeZone: 'America/Sao_Paulo' });
@@ -33,20 +32,23 @@ describe('montarEvento', () => {
     expect(evento.extendedProperties?.private).toMatchObject({ plantaoId: 'p1' });
   });
 
-  it('termina no dia seguinte quando o turno vira a meia-noite', () => {
-    const evento = montarEvento({ ...PLANTAO_BASE, turno: { nome: 'Noite', horaInicio: '22:00', horaFim: '06:00' } });
+  it('termina no dia seguinte quando o horário vira a meia-noite', () => {
+    const evento = montarEvento({ ...PLANTAO_BASE, tipoPlantao: { nome: 'Noite', horaInicio: '22:00', horaFim: '06:00' } });
     expect(evento.start).toMatchObject({ dateTime: '2026-09-10T22:00:00' });
     expect(evento.end).toMatchObject({ dateTime: '2026-09-11T06:00:00' });
   });
 
-  it('vira evento de dia inteiro sem turno, com fim exclusivo', () => {
-    const evento = montarEvento({ ...PLANTAO_BASE, turno: null });
+  it('vira evento de dia inteiro sem tipo de plantão, com fim exclusivo', () => {
+    const evento = montarEvento({ ...PLANTAO_BASE, tipoPlantao: null });
     expect(evento.start).toEqual({ date: '2026-09-10' });
     expect(evento.end).toEqual({ date: '2026-09-11' });
   });
 
   it('ignora hora inválida e cai para o dia inteiro', () => {
-    const evento = montarEvento({ ...PLANTAO_BASE, turno: { nome: 'Quebrado', horaInicio: '25:99', horaFim: '17:00' } });
+    const evento = montarEvento({
+      ...PLANTAO_BASE,
+      tipoPlantao: { nome: 'Quebrado', horaInicio: '25:99', horaFim: '17:00' },
+    });
     expect(evento.start).toEqual({ date: '2026-09-10' });
   });
 

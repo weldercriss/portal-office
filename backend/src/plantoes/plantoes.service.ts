@@ -10,7 +10,6 @@ import { UpdatePlantaoDto } from './dto/update-plantao.dto';
 const PLANTAO_INCLUDE = {
   user: { select: { id: true, nome: true, email: true } },
   criadoPor: { select: { id: true, nome: true } },
-  turno: true,
   tipoPlantao: true,
 } as const;
 
@@ -134,7 +133,7 @@ export class PlantoesService {
       throw new BadRequestException('Não é possível publicar um plantão sem um plantonista vinculado');
     }
 
-    const { turno, tipoPlantao } = await this.validarTurnoETipo(dto.turnoId, dto.tipoPlantaoId);
+    const tipoPlantao = await this.validarTipo(dto.tipoPlantaoId);
 
     if (tipoPlantao.regra !== RegraRecorrenciaPlantao.UNICO && !dto.dataFim) {
       throw new BadRequestException('Informe a data final da recorrência');
@@ -194,7 +193,6 @@ export class PlantoesService {
               userId: dto.userId ?? undefined,
               criadoPorId,
               status,
-              turnoId: turno.id,
               tipoPlantaoId: tipoPlantao.id,
               serieId,
             },
@@ -223,8 +221,8 @@ export class PlantoesService {
       await this.validarDisponibilidade(proximoUserId, dto.data ? new Date(dto.data) : atual.data);
     }
 
-    if (dto.turnoId !== undefined || dto.tipoPlantaoId !== undefined) {
-      await this.validarTurnoETipo(dto.turnoId ?? atual.turnoId ?? undefined, dto.tipoPlantaoId ?? atual.tipoPlantaoId ?? undefined);
+    if (dto.tipoPlantaoId !== undefined) {
+      await this.validarTipo(dto.tipoPlantaoId);
     }
 
     const plantao = await this.prisma.plantao.update({
@@ -234,7 +232,6 @@ export class PlantoesService {
         data: dto.data ? new Date(dto.data) : undefined,
         userId: dto.userId === undefined ? undefined : dto.userId,
         status: dto.status,
-        turnoId: dto.turnoId === undefined ? undefined : dto.turnoId,
         tipoPlantaoId: dto.tipoPlantaoId === undefined ? undefined : dto.tipoPlantaoId,
       },
       include: PLANTAO_INCLUDE,
@@ -400,18 +397,13 @@ export class PlantoesService {
     }
   }
 
-  private async validarTurnoETipo(turnoId?: string, tipoPlantaoId?: string) {
-    if (!turnoId) throw new BadRequestException('Informe o turno do plantão');
+  private async validarTipo(tipoPlantaoId?: string) {
     if (!tipoPlantaoId) throw new BadRequestException('Informe o tipo do plantão');
 
-    const [turno, tipoPlantao] = await Promise.all([
-      this.prisma.turno.findUnique({ where: { id: turnoId } }),
-      this.prisma.tipoPlantao.findUnique({ where: { id: tipoPlantaoId } }),
-    ]);
-    if (!turno || !turno.ativo) throw new BadRequestException('Turno inválido ou inativo');
+    const tipoPlantao = await this.prisma.tipoPlantao.findUnique({ where: { id: tipoPlantaoId } });
     if (!tipoPlantao || !tipoPlantao.ativo) throw new BadRequestException('Tipo de plantão inválido ou inativo');
 
-    return { turno, tipoPlantao };
+    return tipoPlantao;
   }
 
   private async notificarVinculoSerie(userId: string, plantoes: Array<{ data: Date }>) {

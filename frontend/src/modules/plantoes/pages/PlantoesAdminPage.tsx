@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Settings, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { HttpError } from '../../../api/httpClient';
 import { PageShell } from '../../../components/system/PageShell';
 import { ListToolbar } from '../../../components/system/ListToolbar';
@@ -17,7 +18,6 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { Select } from '../../../components/ui/Select';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { useUsuarios } from '../../usuarios/hooks/useUsuarios';
-import { useTurnos } from '../../turnos/hooks/useTurnos';
 import { useTiposPlantao } from '../../tipos-plantao/hooks/useTiposPlantao';
 import {
   useCreatePlantao,
@@ -32,9 +32,9 @@ const STATUS_LABEL: Record<PlantaoStatus, string> = { RASCUNHO: 'Rascunho', PUBL
 const DIAS_SEMANA_LABEL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export default function PlantoesAdminPage() {
+  const navigate = useNavigate();
   const plantoesQuery = usePlantoes();
   const usuariosQuery = useUsuarios();
-  const turnosQuery = useTurnos(true);
   const tiposPlantaoQuery = useTiposPlantao(true);
   const createMutation = useCreatePlantao();
   const updateMutation = useUpdatePlantao();
@@ -47,7 +47,6 @@ export default function PlantoesAdminPage() {
   const [nome, setNome] = useState('');
   const [data, setData] = useState('');
   const [userId, setUserId] = useState('');
-  const [turnoId, setTurnoId] = useState('');
   const [tipoPlantaoId, setTipoPlantaoId] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [diasSemana, setDiasSemana] = useState<number[]>([]);
@@ -56,7 +55,6 @@ export default function PlantoesAdminPage() {
   const [serieParaExcluir, setSerieParaExcluir] = useState<{ serieId: string; quantidade: number } | null>(null);
 
   const usuarios = usuariosQuery.data ?? [];
-  const turnos = turnosQuery.data ?? [];
   const tiposPlantao = tiposPlantaoQuery.data ?? [];
   const plantonistas = usuarios.filter((u) => u.ativo && u.group?.fazPlantao);
 
@@ -80,7 +78,6 @@ export default function PlantoesAdminPage() {
     setNome('');
     setData('');
     setUserId('');
-    setTurnoId('');
     setTipoPlantaoId('');
     setDataFim('');
     setDiasSemana([]);
@@ -93,7 +90,6 @@ export default function PlantoesAdminPage() {
     setNome(plantao.nome ?? '');
     setData(plantao.data.slice(0, 10));
     setUserId(plantao.userId ?? '');
-    setTurnoId(plantao.turnoId ?? '');
     setTipoPlantaoId(plantao.tipoPlantaoId ?? '');
     setDataFim('');
     setDiasSemana([]);
@@ -114,7 +110,6 @@ export default function PlantoesAdminPage() {
         data,
         userId: userId || null,
         status,
-        turnoId,
         tipoPlantaoId,
         ...(mostrarCamposRecorrencia ? { dataFim, diasSemana: mostrarDiasSemana ? diasSemana : undefined } : {}),
       };
@@ -173,7 +168,17 @@ export default function PlantoesAdminPage() {
     <PageShell>
       <PageHeader title="Plantões Suporte" description="Gerencie a escala de plantões e os plantonistas vinculados." />
 
-      <ListToolbar actions={<Button onClick={abrirNovo}>Novo plantão</Button>}>
+      <ListToolbar
+        actions={
+          <>
+            <Button variant="secondary" className="gap-1.5" onClick={() => navigate('/configuracoes/plantoes')}>
+              <Settings aria-hidden="true" className="h-4 w-4" />
+              Configurar plantões
+            </Button>
+            <Button onClick={abrirNovo}>Novo plantão</Button>
+          </>
+        }
+      >
         <SearchField value={busca} onChange={setBusca} placeholder="Buscar por data, nome ou plantonista" />
       </ListToolbar>
 
@@ -189,8 +194,8 @@ export default function PlantoesAdminPage() {
                 <Th>Data</Th>
                 <Th>Nome</Th>
                 <Th>Atendente</Th>
-                <Th>Turno</Th>
                 <Th>Tipo</Th>
+                <Th>Horário</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Ações</Th>
               </tr>
@@ -205,8 +210,10 @@ export default function PlantoesAdminPage() {
                     <Td className="font-bold text-[var(--color-text-primary)]">{plantao.data.slice(0, 10)}</Td>
                     <Td>{plantao.nome ?? '—'}</Td>
                     <Td>{plantao.user?.nome ?? '—'}</Td>
-                    <Td>{plantao.turno?.nome ?? '—'}</Td>
                     <Td>{plantao.tipoPlantao?.nome ?? '—'}</Td>
+                    <Td>
+                      {plantao.tipoPlantao ? `${plantao.tipoPlantao.horaInicio}-${plantao.tipoPlantao.horaFim}` : '—'}
+                    </Td>
                     <Td>
                       <Badge tone={plantao.status === 'PUBLICADO' ? 'success' : 'neutral'}>
                         {STATUS_LABEL[plantao.status]}
@@ -263,18 +270,6 @@ export default function PlantoesAdminPage() {
           <FormField label="Nome (opcional)" htmlFor="nome-plantao">
             <Input id="nome-plantao" value={nome} onChange={(e) => setNome(e.target.value)} />
           </FormField>
-          <FormField label="Turno" htmlFor="turno-plantao">
-            <Select id="turno-plantao" value={turnoId} onChange={(e) => setTurnoId(e.target.value)} required>
-              <option value="">Selecione um turno</option>
-              {turnos
-                .filter((t) => t.ativo)
-                .map((turno) => (
-                  <option key={turno.id} value={turno.id}>
-                    {turno.nome} ({turno.horaInicio}-{turno.horaFim})
-                  </option>
-                ))}
-            </Select>
-          </FormField>
           <FormField label="Tipo de plantão" htmlFor="tipo-plantao">
             <Select id="tipo-plantao" value={tipoPlantaoId} onChange={(e) => setTipoPlantaoId(e.target.value)} required>
               <option value="">Selecione um tipo</option>
@@ -282,7 +277,7 @@ export default function PlantoesAdminPage() {
                 .filter((t) => t.ativo)
                 .map((tipo) => (
                   <option key={tipo.id} value={tipo.id}>
-                    {tipo.nome}
+                    {tipo.nome} ({tipo.horaInicio}-{tipo.horaFim})
                   </option>
                 ))}
             </Select>

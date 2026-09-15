@@ -241,24 +241,16 @@ model UserRotinaOverride {
   @@unique([userId, rotinaId])
 }
 
-model Turno {
-  id         String    @id @default(uuid())
+model TipoPlantao {
+  id         String                  @id @default(uuid())
   nome       String
   horaInicio String
   horaFim    String
-  ativo      Boolean   @default(true)
-  criadoEm   DateTime  @default(now())
+  regra      RegraRecorrenciaPlantao
+  ativo      Boolean                 @default(true)
+  criadoEm   DateTime                @default(now())
   plantoes   Plantao[]
-}
-
-model TipoPlantao {
-  id       String                  @id @default(uuid())
-  nome     String
-  regra    RegraRecorrenciaPlantao
-  ativo    Boolean                 @default(true)
-  criadoEm DateTime                @default(now())
-  plantoes Plantao[]
-  series   PlantaoSerie[]
+  series     PlantaoSerie[]
 }
 
 model PlantaoSerie {
@@ -283,8 +275,6 @@ model Plantao {
   criadoPorId   String
   criadoPor     User           @relation("PlantaoCriadoPor", fields: [criadoPorId], references: [id])
   status        PlantaoStatus  @default(RASCUNHO)
-  turnoId       String?
-  turno         Turno?         @relation(fields: [turnoId], references: [id])
   tipoPlantaoId String?
   tipoPlantao   TipoPlantao?   @relation(fields: [tipoPlantaoId], references: [id])
   serieId       String?

@@ -3,19 +3,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AgendaGoogleAutorizacaoPerdida, AgendaGoogleOAuthService } from './agenda-google-oauth.service';
 import { EventoAgenda, GoogleCalendarClient, eventIdDeterministico } from './google-calendar.client';
 
-interface TurnoDoPlantao {
-  nome: string;
-  horaInicio: string;
-  horaFim: string;
-}
-
 interface PlantaoParaAgenda {
   id: string;
   nome: string | null;
   data: Date;
   status: string;
-  turno: TurnoDoPlantao | null;
-  tipoPlantao: { nome: string } | null;
+  tipoPlantao: { nome: string; horaInicio: string; horaFim: string } | null;
   user: { id: string; nome: string; email: string; ativo: boolean; agendaGoogleAtiva: boolean } | null;
 }
 
@@ -72,19 +65,20 @@ function normalizarHora(valor?: string | null): string | null {
   return `${String(hora).padStart(2, '0')}:${casado[2]}:00`;
 }
 
-/** Monta o evento do plantão. Turno ausente ou inválido vira evento de dia inteiro. */
+/** Monta o evento do plantão. Tipo ausente ou horário inválido vira evento de dia inteiro. */
 export function montarEvento(plantao: PlantaoParaAgenda): EventoAgenda {
   const dia = diaUtc(plantao.data);
-  const inicio = normalizarHora(plantao.turno?.horaInicio);
-  const fim = normalizarHora(plantao.turno?.horaFim);
+  const inicio = normalizarHora(plantao.tipoPlantao?.horaInicio);
+  const fim = normalizarHora(plantao.tipoPlantao?.horaFim);
 
   const titulo = plantao.nome?.trim();
   const summary = titulo || `Plantão${plantao.tipoPlantao ? ` — ${plantao.tipoPlantao.nome}` : ''}`;
 
   const portal = urlPortal();
   const description = [
-    plantao.turno ? `Turno: ${plantao.turno.nome} (${plantao.turno.horaInicio} às ${plantao.turno.horaFim})` : null,
-    plantao.tipoPlantao ? `Tipo: ${plantao.tipoPlantao.nome}` : null,
+    plantao.tipoPlantao
+      ? `Tipo: ${plantao.tipoPlantao.nome} (${plantao.tipoPlantao.horaInicio} às ${plantao.tipoPlantao.horaFim})`
+      : null,
     portal ? `Escala completa: ${portal}/plantoes` : null,
     'Evento criado pelo portal. Alterações feitas aqui são sobrescritas na próxima sincronização.',
   ]
@@ -98,7 +92,7 @@ export function montarEvento(plantao: PlantaoParaAgenda): EventoAgenda {
     return { summary, description, start: { date: dia }, end: { date: somarDias(dia, 1) }, extendedProperties };
   }
 
-  // Turno que vira a meia-noite termina no dia seguinte.
+  // Horário que vira a meia-noite termina no dia seguinte.
   const diaFim = fim <= inicio ? somarDias(dia, 1) : dia;
   return {
     summary,
@@ -163,8 +157,7 @@ export class AgendaGoogleService {
       this.prisma.plantao.findUnique({
         where: { id: plantaoId },
         include: {
-          turno: { select: { nome: true, horaInicio: true, horaFim: true } },
-          tipoPlantao: { select: { nome: true } },
+          tipoPlantao: { select: { nome: true, horaInicio: true, horaFim: true } },
           user: { select: { id: true, nome: true, email: true, ativo: true, agendaGoogleAtiva: true } },
         },
       }),

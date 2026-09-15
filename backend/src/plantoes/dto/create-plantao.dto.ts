@@ -31,9 +31,6 @@ export class CreatePlantaoDto {
   status?: PlantaoStatusDto;
 
   @IsString()
-  turnoId!: string;
-
-  @IsString()
   tipoPlantaoId!: string;
 
   /** Obrigatório quando o tipo de plantão selecionado tem regra diferente de UNICO. */

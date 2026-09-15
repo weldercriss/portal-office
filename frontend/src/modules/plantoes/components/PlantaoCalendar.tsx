@@ -122,9 +122,9 @@ export function PlantaoCalendar({
                         >
                           <p className="truncate font-bold text-[var(--color-text-primary)]">{plantao.nome ?? 'Plantão'}</p>
                           <p className="truncate text-[var(--color-text-secondary)]">{plantao.user?.nome ?? 'Sem atendente'}</p>
-                          {plantao.turno && (
+                          {plantao.tipoPlantao && (
                             <p className="truncate text-[var(--color-text-muted)]">
-                              {plantao.turno.nome} · {plantao.turno.horaInicio}-{plantao.turno.horaFim}
+                              {plantao.tipoPlantao.nome} · {plantao.tipoPlantao.horaInicio}-{plantao.tipoPlantao.horaFim}
                             </p>
                           )}
                           {ehMeu && plantao.status === 'PUBLICADO' && (

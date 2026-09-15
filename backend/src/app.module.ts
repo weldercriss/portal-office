@@ -25,7 +25,6 @@ import { TemplatesFormularioModule } from './templates-formulario/templates-form
 import { TiposPlantaoModule } from './tipos-plantao/tipos-plantao.module';
 import { TiposSolicitacaoModule } from './tipos-solicitacao/tipos-solicitacao.module';
 import { TreinamentosModule } from './treinamentos/treinamentos.module';
-import { TurnosModule } from './turnos/turnos.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -44,7 +43,6 @@ import { UsersModule } from './users/users.module';
     PlantoesModule,
     AgendamentoModule,
     PatrimonioModule,
-    TurnosModule,
     TiposPlantaoModule,
     TiposSolicitacaoModule,
     TemplatesFormularioModule,

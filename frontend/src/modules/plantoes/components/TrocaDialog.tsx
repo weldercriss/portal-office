@@ -60,7 +60,7 @@ export function TrocaDialog({ plantao, onOpenChange }: TrocaDialogProps) {
                     <p className="text-sm font-bold text-[var(--color-text-primary)]">{candidato.data.slice(0, 10)}</p>
                     <p className="text-xs text-[var(--color-text-muted)]">
                       {candidato.user?.nome}
-                      {candidato.turno && ` · ${candidato.turno.nome}`}
+                      {candidato.tipoPlantao && ` · ${candidato.tipoPlantao.nome}`}
                     </p>
                   </div>
                   <Button variant="secondary" size="sm" disabled={solicitarMutation.isPending} onClick={() => solicitar(candidato.id)}>

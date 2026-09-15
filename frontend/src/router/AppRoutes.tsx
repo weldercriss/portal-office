@@ -2,7 +2,6 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AppShell } from '../app/layouts/AppShell';
 import { ConfiguracoesLayout } from '../app/layouts/ConfiguracoesLayout';
-import { ConfiguracoesPlantoesLayout } from '../app/layouts/ConfiguracoesPlantoesLayout';
 import { LoadingState } from '../components/ui/LoadingState';
 import FormularioPublicoPage from '../modules/solicitacoes/pages/FormularioPublicoPage';
 import LoginPage from '../pages/LoginPage';
@@ -22,7 +21,6 @@ const SalasAdminPage = lazy(() => import('../modules/agendamento/pages/SalasAdmi
 const SolicitacoesPage = lazy(() => import('../modules/solicitacoes/pages/SolicitacoesPage'));
 const SolicitacoesAdminPage = lazy(() => import('../modules/solicitacoes/pages/SolicitacoesAdminPage'));
 const TiposSolicitacaoAdminPage = lazy(() => import('../modules/tipos-solicitacao/pages/TiposSolicitacaoAdminPage'));
-const TurnosAdminPage = lazy(() => import('../modules/turnos/pages/TurnosAdminPage'));
 const TiposPlantaoAdminPage = lazy(() => import('../modules/tipos-plantao/pages/TiposPlantaoAdminPage'));
 const TelegramConfigAdminPage = lazy(() => import('../modules/telegram-config/pages/TelegramConfigAdminPage'));
 const FichaColaboradorPage = lazy(() => import('../modules/colaboradores-rh/pages/FichaColaboradorPage'));
@@ -112,13 +110,11 @@ export function AppRoutes() {
           <Route path="permissoes" element={<PermissoesAdminPage />} />
           <Route path="tipos-solicitacao" element={<TiposSolicitacaoAdminPage />} />
           <Route path="salas" element={<SalasAdminPage />} />
-          <Route path="plantoes" element={<ConfiguracoesPlantoesLayout />}>
-            <Route index element={<Navigate to="turnos" replace />} />
-            <Route path="turnos" element={<TurnosAdminPage />} />
-            <Route path="tipos-plantao" element={<TiposPlantaoAdminPage />} />
-          </Route>
-          <Route path="turnos" element={<Navigate to="/configuracoes/plantoes/turnos" replace />} />
-          <Route path="tipos-plantao" element={<Navigate to="/configuracoes/plantoes/tipos-plantao" replace />} />
+          <Route path="plantoes" element={<TiposPlantaoAdminPage />} />
+          <Route path="plantoes/turnos" element={<Navigate to="/configuracoes/plantoes" replace />} />
+          <Route path="plantoes/tipos-plantao" element={<Navigate to="/configuracoes/plantoes" replace />} />
+          <Route path="turnos" element={<Navigate to="/configuracoes/plantoes" replace />} />
+          <Route path="tipos-plantao" element={<Navigate to="/configuracoes/plantoes" replace />} />
           <Route path="telegram" element={<TelegramConfigAdminPage />} />
           <Route path="vagas" element={<VagasAdminPage />} />
         </Route>

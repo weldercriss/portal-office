@@ -11,7 +11,6 @@ describe('PlantoesService', () => {
   const prismaMock: any = {
     plantao: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
     trocaPlantao: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
-    turno: { findUnique: jest.fn() },
     tipoPlantao: { findUnique: jest.fn() },
     plantaoSerie: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
   };
@@ -25,7 +24,6 @@ describe('PlantoesService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     solicitacoesMock.existeAfastamentoNoPeriodo.mockResolvedValue(null);
-    prismaMock.turno.findUnique.mockResolvedValue({ id: 'turno1', ativo: true });
     prismaMock.tipoPlantao.findUnique.mockResolvedValue({ id: 'tipo1', ativo: true, regra: 'UNICO' });
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -50,7 +48,7 @@ describe('PlantoesService', () => {
     it('allows saving a draft without a plantonista linked', async () => {
       prismaMock.plantao.create.mockResolvedValue({ id: '1', userId: null, data: new Date('2026-09-01') });
       await service.create(
-        { data: '2026-09-01', status: 'RASCUNHO', turnoId: 'turno1', tipoPlantaoId: 'tipo1' } as any,
+        { data: '2026-09-01', status: 'RASCUNHO', tipoPlantaoId: 'tipo1' } as any,
         'admin1',
       );
       expect(prismaMock.plantao.create).toHaveBeenCalled();
@@ -60,7 +58,7 @@ describe('PlantoesService', () => {
     it('notifies the plantonista when linked on creation', async () => {
       prismaMock.plantao.create.mockResolvedValue({ id: '1', userId: 'u1', data: new Date('2026-09-01') });
       await service.create(
-        { data: '2026-09-01', status: 'PUBLICADO', userId: 'u1', turnoId: 'turno1', tipoPlantaoId: 'tipo1' } as any,
+        { data: '2026-09-01', status: 'PUBLICADO', userId: 'u1', tipoPlantaoId: 'tipo1' } as any,
         'admin1',
       );
       expect(notificacoesMock.criar).toHaveBeenCalledWith(
@@ -72,20 +70,17 @@ describe('PlantoesService', () => {
       solicitacoesMock.existeAfastamentoNoPeriodo.mockResolvedValue({ id: 'o1', tipo: { nome: 'Atestado Médico' } });
       await expect(
         service.create(
-          { data: '2026-09-01', status: 'RASCUNHO', userId: 'u1', turnoId: 'turno1', tipoPlantaoId: 'tipo1' } as any,
+          { data: '2026-09-01', status: 'RASCUNHO', userId: 'u1', tipoPlantaoId: 'tipo1' } as any,
           'admin1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prismaMock.plantao.create).not.toHaveBeenCalled();
     });
 
-    it('rejects an invalid or inactive turno', async () => {
-      prismaMock.turno.findUnique.mockResolvedValue({ id: 'turno1', ativo: false });
+    it('rejects an invalid or inactive tipo de plantão', async () => {
+      prismaMock.tipoPlantao.findUnique.mockResolvedValue({ id: 'tipo1', ativo: false });
       await expect(
-        service.create(
-          { data: '2026-09-01', status: 'RASCUNHO', turnoId: 'turno1', tipoPlantaoId: 'tipo1' } as any,
-          'admin1',
-        ),
+        service.create({ data: '2026-09-01', status: 'RASCUNHO', tipoPlantaoId: 'tipo1' } as any, 'admin1'),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prismaMock.plantao.create).not.toHaveBeenCalled();
     });
@@ -102,7 +97,6 @@ describe('PlantoesService', () => {
           data: '2026-09-01',
           dataFim: '2026-09-14',
           diasSemana: [0, 6],
-          turnoId: 'turno1',
           tipoPlantaoId: 'tipo1',
           status: 'RASCUNHO',
         } as any,
@@ -120,7 +114,7 @@ describe('PlantoesService', () => {
       prismaMock.plantao.create.mockImplementation(({ data }: any) => Promise.resolve({ ...data }));
 
       await service.create(
-        { data: '2026-01-31', dataFim: '2026-04-30', turnoId: 'turno1', tipoPlantaoId: 'tipo1', status: 'RASCUNHO' } as any,
+        { data: '2026-01-31', dataFim: '2026-04-30', tipoPlantaoId: 'tipo1', status: 'RASCUNHO' } as any,
         'admin1',
       );
 
@@ -136,7 +130,6 @@ describe('PlantoesService', () => {
             data: '2020-01-01',
             dataFim: '2030-01-01',
             diasSemana: [0, 1, 2, 3, 4, 5, 6],
-            turnoId: 'turno1',
             tipoPlantaoId: 'tipo1',
             status: 'RASCUNHO',
           } as any,
@@ -160,7 +153,6 @@ describe('PlantoesService', () => {
             dataFim: '2026-09-14',
             diasSemana: [0, 6],
             userId: 'u1',
-            turnoId: 'turno1',
             tipoPlantaoId: 'tipo1',
             status: 'RASCUNHO',
           } as any,

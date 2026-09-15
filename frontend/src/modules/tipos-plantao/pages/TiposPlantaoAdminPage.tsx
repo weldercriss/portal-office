@@ -34,6 +34,8 @@ export default function TiposPlantaoAdminPage() {
   const [tipoParaExcluir, setTipoParaExcluir] = useState<TipoPlantao | null>(null);
   const [emEdicao, setEmEdicao] = useState<TipoPlantao | null>(null);
   const [nome, setNome] = useState('');
+  const [horaInicio, setHoraInicio] = useState('');
+  const [horaFim, setHoraFim] = useState('');
   const [regra, setRegra] = useState<RegraRecorrenciaPlantao>('UNICO');
   const [erro, setErro] = useState<string | null>(null);
   const [erroLista, setErroLista] = useState<string | null>(null);
@@ -46,6 +48,8 @@ export default function TiposPlantaoAdminPage() {
   function abrirNovo() {
     setEmEdicao(null);
     setNome('');
+    setHoraInicio('');
+    setHoraFim('');
     setRegra('UNICO');
     setErro(null);
     setDialogAberto(true);
@@ -54,6 +58,8 @@ export default function TiposPlantaoAdminPage() {
   function abrirEdicao(tipo: TipoPlantao) {
     setEmEdicao(tipo);
     setNome(tipo.nome);
+    setHoraInicio(tipo.horaInicio);
+    setHoraFim(tipo.horaFim);
     setRegra(tipo.regra);
     setErro(null);
     setDialogAberto(true);
@@ -62,7 +68,7 @@ export default function TiposPlantaoAdminPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setErro(null);
-    const input = { nome, regra };
+    const input = { nome, horaInicio, horaFim, regra };
     try {
       if (emEdicao) {
         await updateMutation.mutateAsync({ id: emEdicao.id, input });
@@ -118,6 +124,8 @@ export default function TiposPlantaoAdminPage() {
             <thead>
               <tr>
                 <Th>Nome</Th>
+                <Th>Início</Th>
+                <Th>Fim</Th>
                 <Th>Regra</Th>
                 <Th className="text-right">Ações</Th>
               </tr>
@@ -126,6 +134,8 @@ export default function TiposPlantaoAdminPage() {
               {tiposFiltrados.map((tipo) => (
                 <Tr key={tipo.id}>
                   <Td className="font-bold text-[var(--color-text-primary)]">{tipo.nome}</Td>
+                  <Td>{tipo.horaInicio}</Td>
+                  <Td>{tipo.horaFim}</Td>
                   <Td>{REGRA_RECORRENCIA_LABEL[tipo.regra]}</Td>
                   <Td className="text-right">
                     <div className="inline-flex items-center justify-end gap-2">
@@ -167,6 +177,24 @@ export default function TiposPlantaoAdminPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <FormField label="Nome" htmlFor="nome-tipo-plantao" error={erro ?? undefined}>
             <Input id="nome-tipo-plantao" value={nome} onChange={(e) => setNome(e.target.value)} required />
+          </FormField>
+          <FormField label="Hora de início" htmlFor="hora-inicio-tipo-plantao">
+            <Input
+              id="hora-inicio-tipo-plantao"
+              type="time"
+              value={horaInicio}
+              onChange={(e) => setHoraInicio(e.target.value)}
+              required
+            />
+          </FormField>
+          <FormField label="Hora de fim" htmlFor="hora-fim-tipo-plantao">
+            <Input
+              id="hora-fim-tipo-plantao"
+              type="time"
+              value={horaFim}
+              onChange={(e) => setHoraFim(e.target.value)}
+              required
+            />
           </FormField>
           <FormField label="Regra de recorrência" htmlFor="regra-tipo-plantao">
             <Select

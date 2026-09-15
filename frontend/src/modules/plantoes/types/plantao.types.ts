@@ -9,16 +9,11 @@ export interface PlantaoUsuarioResumo {
   email?: string;
 }
 
-export interface PlantaoTurnoResumo {
+export interface PlantaoTipoResumo {
   id: string;
   nome: string;
   horaInicio: string;
   horaFim: string;
-}
-
-export interface PlantaoTipoResumo {
-  id: string;
-  nome: string;
   regra: RegraRecorrenciaPlantao;
 }
 
@@ -31,8 +26,6 @@ export interface Plantao {
   criadoPorId: string;
   criadoPor: PlantaoUsuarioResumo;
   status: PlantaoStatus;
-  turnoId: string | null;
-  turno: PlantaoTurnoResumo | null;
   tipoPlantaoId: string | null;
   tipoPlantao: PlantaoTipoResumo | null;
   serieId: string | null;
@@ -45,7 +38,6 @@ export interface CreatePlantaoInput {
   data: string;
   userId?: string | null;
   status?: PlantaoStatus;
-  turnoId: string;
   tipoPlantaoId: string;
   /** Obrigatório quando o tipo selecionado tem regra diferente de UNICO. */
   dataFim?: string;

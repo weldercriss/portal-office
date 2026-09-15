@@ -9,6 +9,8 @@ export const REGRA_RECORRENCIA_LABEL: Record<RegraRecorrenciaPlantao, string> = 
 export interface TipoPlantao {
   id: string;
   nome: string;
+  horaInicio: string;
+  horaFim: string;
   regra: RegraRecorrenciaPlantao;
   ativo: boolean;
   criadoEm: string;
@@ -16,6 +18,8 @@ export interface TipoPlantao {
 
 export interface CreateTipoPlantaoInput {
   nome: string;
+  horaInicio: string;
+  horaFim: string;
   regra: RegraRecorrenciaPlantao;
 }
 
