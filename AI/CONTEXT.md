@@ -1,6 +1,6 @@
 # Contexto atual do Portal BackOffice
 
-Atualizado em **10/09/2026** a partir dos arquivos presentes neste checkout, incluindo alterações locais ainda não commitadas.
+Atualizado em **15/09/2026** a partir dos arquivos presentes neste checkout, incluindo alterações locais ainda não commitadas.
 
 Este documento descreve o sistema implementado. A leitura do repositório não confirma quais migrations estão aplicadas no banco, quais integrações estão habilitadas nem qual versão está publicada. Nesta atualização não foram executados testes, builds, migrations ou deploys.
 
@@ -73,17 +73,27 @@ Para colaboradores com acesso à rotina, existe um dashboard com próximos plant
 
 ### Plantões
 
-API `/plantoes`, com turnos e tipos configuráveis. Há plantões em `RASCUNHO` e `PUBLICADO`, recorrências `UNICO`, `SEMANAL` e `MENSAL`, exclusão de série e fluxo de troca com estados `PENDENTE`, `ACEITA` e `REJEITADA`. Plantões integram notificações e Agenda Google.
+API `/plantoes`, com tipo de plantão configurável (nome, `horaInicio`/`horaFim` e regra de recorrência num único cadastro — não existe mais um `Turno` separado, foi mesclado em `TipoPlantao`). Há plantões em `RASCUNHO` e `PUBLICADO`, recorrências `UNICO`, `SEMANAL` e `MENSAL`, exclusão de série e fluxo de troca com estados `PENDENTE`, `ACEITA` e `REJEITADA`. Plantões integram notificações e Agenda Google.
 
 A navegação e a página `/plantoes` estão atualmente restritas a administradores. O arquivo `MeusPlantoesPage.tsx` continua no repositório, mas seu carregamento está comentado no roteador; as operações de troca continuam implementadas no backend.
 
 ### Solicitações
 
-API `/solicitacoes`, com tipos configuráveis, colaborador, responsável opcional, período, descrição, anexo e identificação de quem registrou e decidiu. Estados: `SOLICITADA`, `APROVADA`, `REJEITADA` e `CANCELADA`.
+API `/solicitacoes`, com tipos configuráveis, colaborador opcional, responsável opcional, período, descrição, anexo e identificação de quem registrou e decidiu. Estados: `SOLICITADA`, `APROVADA`, `REJEITADA` e `CANCELADA`.
 
 Tipos controlam necessidade de aprovação e classificação como afastamento ou folga. Quando um tipo dispensa aprovação, somente um administrador pode registrá-lo, informando o colaborador; a solicitação já nasce aprovada. Para os demais tipos, usuários comuns solicitam em seu próprio nome, enquanto administradores podem indicar outra pessoa.
 
+Tipos com `usaFormulario=true` não aparecem no seletor "Tipo" do diálogo "Nova solicitação" da tela administrativa — quem preenche o formulário é sempre o colaborador (tela autenticada) ou quem responde pelo link público, nunca o admin em nome de outra pessoa. Ao editar uma solicitação já existente o seletor volta a mostrar todos os tipos, pra não invalidar o tipo já salvo.
+
 Em `/solicitacoes`, administradores recebem a tela de gestão e usuários comuns a tela pessoal. Aprovação e rejeição estão disponíveis por botões de ação na listagem administrativa.
+
+`Solicitacao.userId` e `registradoPorId` são **opcionais** — nulos quando a resposta veio do formulário público (ver abaixo), sem colaborador identificado. Nesse caso não há notificação pessoal ao decidir (`aprovar`/`rejeitar` só notifica quando `userId` existe) e a linha aparece como "Resposta anônima" nas telas administrativas.
+
+**Formulário dinâmico por tipo.** Um tipo com `usaFormulario=true` define `camposFormulario` (`Json`: lista de `{ id, label, tipo: TEXTO|NUMERO|DATA|SELECAO|ARQUIVO, obrigatorio?, opcoes?, exibirNaListagem? }`, cada campo com um `id` estável gerado no backend). `exibirNaListagem` marca um campo (tipicamente o que identifica quem respondeu, ex. "Nome") pra sua resposta aparecer direto na coluna "Colaborador" das tabelas administrativas (Solicitações e dashboard) no lugar de "Resposta anônima", sem precisar abrir o drill-down de respostas (`frontend/src/modules/solicitacoes/utils/nomeSolicitante.ts`). A `Solicitacao` desse tipo guarda as respostas em `respostasFormulario` (`Json`, chave = id do campo); campos `ARQUIVO` guardam `{ nome, caminho, mimeType }` e são enviados num endpoint próprio (`POST /solicitacoes/:id/formulario-anexo/:campoId`), depois da solicitação já existir, sem exigir o arquivo na criação mesmo se o campo for obrigatório. Editar uma solicitação (`PATCH /solicitacoes/:id`) faz *merge* das respostas, nunca substitui o objeto inteiro, pra não apagar arquivos já enviados. Não há tabela relacional pra campos/respostas — é o primeiro uso de `Json` no schema, deliberado (schema variável definido pelo admin, sem necessidade de query relacional sobre o conteúdo). Templates de campos reutilizáveis ficam em `TemplateFormulario` (módulo `templates-formulario`, CRUD simples, sem vínculo vivo com os tipos — aplicar um template copia os campos, com ids novos).
+
+**Formulário público sem login (como um Google Forms).** Um tipo com `permiteLinkPublico=true` (exige `usaFormulario=true` e `requerAprovacao=true` — quem responde não é identificado, então não há como já nascer aprovada) recebe um `tokenLinkPublico` fixo e reutilizável (gerado uma vez, nunca trocado enquanto o link ficar ativo). É um link do **tipo**, não da solicitação: qualquer pessoa que o abra, mesmo sem conta no sistema, vê as perguntas em branco e pode enviar quantas respostas quiser — cada envio cria uma `Solicitacao` nova com `userId`/`registradoPorId` nulos, `dataInicio` = agora, `status` sempre `SOLICITADA`. As rotas ficam em `formulario-publico.controller.ts` (**sem** `JwtAuthGuard`, controller separado de propósito — única superfície sem autenticação do backend): `GET /formulario-publico/:token` (formulário em branco), `POST /formulario-publico/:token` (cria a resposta, retorna o id), `POST /formulario-publico/:token/:solicitacaoId/anexo/:campoId` (upload de campo `ARQUIVO`, validado contra o mesmo tipo e ainda `SOLICITADA`). Token inexistente ou tipo com o flag desativado respondem com o mesmo 404 genérico. Nenhuma outra rota do sistema é afetada. No frontend, `/formulario-publico/:token` (`FormularioPublicoPage.tsx`) fica fora do `ProtectedRoute`/`AuthenticatedLayout`; o admin copia o link (`navigator.clipboard`) na própria tela de "Tipos de solicitação", só quando o tipo já tem `permiteLinkPublico` e um token salvo.
+
+**Relato no dashboard.** `AdminDashboardPage` tem um card "Formulários preenchidos" com contagem por tipo e uma tabela detalhada (filtrável por tipo/período, até 20 linhas + link para `/solicitacoes`), reaproveitando `GET /solicitacoes` já existente — sem endpoint agregado novo no backend.
 
 ### Agendamento de salas
 
@@ -98,6 +108,17 @@ Backend e frontend implementados. A API usa `/v1/agendamento/salas` e `/v1/agend
 - Os destinatários dos avisos podem ser solicitante, responsável ou ambos (`ReservaDestinatarios`). A opção `notificarTelegram` controla avisos pessoais pelo Telegram; as notificações internas de mudança continuam.
 - Há avisos de criação, confirmação e cancelamento, além de lembretes aproximadamente 30 minutos antes do início e do fim. O worker roda a cada cinco minutos, usa uma janela de 25 a 35 minutos e flags para evitar repetição; atualmente seleciona reservas confirmadas do dia UTC com `notificarTelegram=true`.
 - Reservas sincronizam eventos na Agenda Google do solicitante. A escolha do responsável como destinatário de notificações não altera o titular dessa sincronização.
+
+### Convites de agenda em massa
+
+API `/convites-agenda`, exclusiva de `ADMIN` (sem rotina própria — é uma ação sensível, escreve na agenda de terceiros, sem caso de uso para delegar a não-admins). O admin monta um evento (título, descrição, local, início/fim) e escolhe vários colaboradores; o portal cria uma cópia do evento na Agenda Google de cada destinatário que já concedeu a conexão em Meu perfil, reaproveitando `AgendaGoogleService`/`GoogleCalendarClient` do módulo `agenda-google`. Não existe um único evento com organizador/convidados (exigiria delegação de domínio, que este projeto não usa): cada pessoa recebe seu próprio evento, no mesmo padrão de plantões e reservas.
+
+- `GET /convites-agenda/colaboradores` lista colaboradores ativos com `disponivel` (falso quando a pessoa não conectou, desligou a sincronização pessoal, ou está inativa) — o frontend mostra esses como "Indisponível" e não deixa selecionar.
+- `POST /convites-agenda/verificar` checa, para um intervalo e uma lista de destinatários, o que já existe na agenda de cada um (`GoogleCalendarClient.listarNoIntervalo`, `events.list` com `timeMin`/`timeMax`) — mostra a divergência (título e horário do evento existente) antes de criar, como o próprio Google Agenda faz ao convidar alguém ocupado. É só consulta, não persiste nada.
+- `POST /convites-agenda` cria o `ConviteAgendaEvento` e, para cada destinatário, tenta criar o evento — resultado por pessoa fica em `ConviteAgendaDestinatario.status` (`CRIADO`, `INDISPONIVEL`, `FALHA`, `CANCELADO`), com `calendarId`/`eventId`/`googleSub` guardados quando criado, para permitir cancelar ou editar depois.
+- `PATCH /convites-agenda/:id` edita título/descrição/local/início/fim de um convite já enviado (destinatários não mudam por aqui) e propaga pra quem já tinha o evento — o ID determinístico faz o `criar` do Google virar um PATCH por baixo (409 → atualiza em vez de duplicar). Quem está `CANCELADO` fica de fora: editar não ressuscita o convite pra essa pessoa.
+- `POST /convites-agenda/:id/reenviar` tenta de novo só quem ficou `FALHA`/`INDISPONIVEL` (não mexe em quem já tem o evento). `POST /convites-agenda/:id/cancelar` remove o evento da agenda de quem estava `CRIADO` e marca `CANCELADO`.
+- Front-end em `frontend/src/modules/convites-agenda/`, rota `/convites-agenda` (nav item `adminOnly`, ícone reaproveitado de "calendar"). `ConviteAgendaDialog.tsx` atende os dois modos (criar e editar, como `ReservaDialog`) e exige clicar em "Verificar disponibilidade" antes de liberar "Enviar convites"/"Salvar alterações" — a checagem fica presa à combinação atual de horário/destinatários e é descartada a qualquer mudança. Em edição, os destinatários aparecem como lista fixa (sem checkbox) com o status atual de cada um; não dá pra adicionar ou remover gente por ali.
 
 ### Patrimônio e equipamentos
 
@@ -136,23 +157,24 @@ O envio Telegram é disparado sem aguardar a entrega dentro de `NotificacoesServ
 | Caminho | Destino / acesso |
 | --- | --- |
 | `/login` | Login por senha e, quando habilitado, Google. |
+| `/formulario-publico/:token` | Sem login; formulário público de um tipo de solicitação (token do tipo, não da solicitação) — como um Google Forms, qualquer pessoa envia uma resposta nova. |
 | `/` | Dashboard condicionado à rotina; conteúdo varia por perfil. |
 | `/perfil` | Perfil e conexões pessoais, para usuário autenticado. |
 | `/plantoes` | Gestão de plantões; `ADMIN` e rotina correspondente. |
 | `/agendamentos` | Consulta de reservas; gestão para `ADMIN`. |
 | `/solicitacoes` | Gestão administrativa ou solicitações pessoais. |
+| `/convites-agenda` | Convites de agenda em massa; `ADMIN` apenas. |
 | `/configuracoes/colaboradores` | Cadastro administrativo de colaboradores. |
 | `/configuracoes/colaboradores/:id` | Ficha de RH. |
 | `/configuracoes/departamentos` | Departamentos e subáreas. |
 | `/configuracoes/permissoes` | Rotinas por departamento e exceções individuais. |
 | `/configuracoes/tipos-solicitacao` | Catálogo de solicitações. |
 | `/configuracoes/salas` | Cadastro de salas. |
-| `/configuracoes/plantoes/turnos` | Cadastro de turnos. |
-| `/configuracoes/plantoes/tipos-plantao` | Catálogo de plantões. |
+| `/configuracoes/plantoes` | Catálogo de tipos de plantão (nome, horário e recorrência num só cadastro). |
 | `/configuracoes/telegram` | Bot, avisos e grupos/tópicos. |
 | `/configuracoes/vagas` e `/configuracoes/vagas/:id` | Recrutamento. |
 
-Toda a área `/configuracoes` exige `ADMIN`. As rotas antigas de configurações de turnos e tipos de plantão redirecionam para os caminhos agrupados em `/configuracoes/plantoes`.
+Toda a área `/configuracoes` exige `ADMIN`. As rotas antigas `/configuracoes/plantoes/turnos` e `/configuracoes/plantoes/tipos-plantao` (e os atalhos `/configuracoes/turnos` e `/configuracoes/tipos-plantao`) redirecionam para `/configuracoes/plantoes`.
 
 ## 7. Execução e entrega
 
@@ -177,7 +199,7 @@ Variáveis principais: `DATABASE_URL`, segredos e expiração JWT, `CORS_ORIGIN`
 
 - Patrimônio está disponível apenas no backend.
 - Comunicados, templates de comunicados, desempenho e a antiga página de portal do colaborador foram removidos no estado local examinado. Não aparecem como módulos/rotas ativos.
-- Horários padrão, horários diferenciados e almoço do cadastro foram removidos do schema atual; turnos e horários de plantões/reservas continuam existindo.
+- Horários padrão, horários diferenciados e almoço do cadastro foram removidos do schema atual; horários de tipos de plantão e de reservas continuam existindo.
 - As migrations presentes incluem essas remoções, login/Agenda Google, salas, patrimônio, acesso à plataforma, responsáveis e evolução dos avisos Telegram. Não foi consultado o estado de aplicação delas em nenhum banco.
 - Os planos anteriores continham contagens de testes, relatos de produção e migrations então pendentes. Suas pendências foram consolidadas em [TASKS.md](TASKS.md), e a pasta de planos foi removida. Os relatos históricos não atestam a situação desta cópia ou de um ambiente remoto.
 - `claude.md` e `AGENTS.md` apontavam para `docs/ai/CONTEXT.md`/`RULES.md`/`DECISIONS.md`/`TODO.md`, que nunca existiram nesta árvore; ambos foram corrigidos para apontar para `AI/CONTEXT.md`, `AI/TASKS.md` e `AI/SKILLS/`, que são os arquivos reais.

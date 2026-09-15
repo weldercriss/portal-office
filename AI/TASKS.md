@@ -72,3 +72,77 @@ Um equipamento só pode ter uma alocação ativa por vez. Itens em uso não pode
 | `/patrimonio/alocacoes/:id/termo` | Enviar, baixar e remover termo; campo multipart `termo`. |
 
 O contrato não usa prefixo `/v1`; o versionamento do agendamento é específico daquele módulo. Os controllers e DTOs são a referência para métodos, parâmetros e permissões exatos.
+
+## 6. Formulário dinâmico em tipos de solicitação — concluído em 15/09/2026
+
+Implementado: `TipoSolicitacao.usaFormulario` + `camposFormulario` (Json, campos
+com id/label/tipo/obrigatório/opções), template reutilizável
+(`TemplateFormulario`, módulo `templates-formulario`), preenchimento na tela
+de Solicitações (colaborador e admin), drill-down de respostas, formulário
+público sem login como um Google Forms — link fixo por **tipo**
+(`TipoSolicitacao.permiteLinkPublico`/`tokenLinkPublico`), qualquer pessoa
+responde sem cadastro (`Solicitacao.userId`/`registradoPorId` agora
+opcionais), rotas `/formulario-publico/:token` sem guard — e relato no
+dashboard (contagem + tabela filtrável por tipo/período em
+`AdminDashboardPage`). Sem import de planilha nesta v1 (só template). Ver
+detalhes de arquitetura em [CONTEXT.md](CONTEXT.md#solicitações) e o registro
+completo em [SESSIONS/15-09-2026.md](SESSIONS/15-09-2026.md).
+
+Nota de processo: a primeira entrega interpretou "link público" como um link
+por solicitação já criada (só pra continuar editando, com prazo em horas) —
+o usuário corrigiu ainda na mesma sessão: o link precisa ser fixo por tipo
+(reutilizável, como o Google Forms) e aceitar respostas de qualquer pessoa,
+mesmo sem cadastro. O modelo foi refeito (nova migration, DTOs, controllers e
+telas) antes de fechar a tarefa; a versão descrita acima é a final.
+
+Pendência conhecida, não implementada: editar um campo do formulário depois
+que já existem respostas pode deixar respostas antigas "órfãs" (a resposta
+continua salva no Json da solicitação, mas perde o campo correspondente se
+ele for removido do tipo) — documentado como limitação aceita, não há
+guarda de bloqueio para isso como existe para excluir o tipo inteiro.
+
+## 7. Unificar Turno e Tipo de plantão — concluído em 15/09/2026
+
+`Turno` deixou de existir como entidade: `horaInicio`/`horaFim` agora são
+campos do próprio `TipoPlantao` (migration
+`20260915140000_merge_turno_em_tipo_plantao`, com backfill a partir dos
+plantões já vinculados). Tela única em `/configuracoes/plantoes`
+(`TiposPlantaoAdminPage.tsx`) substitui as antigas abas Turnos/Tipos de
+plantão; `PlantoesAdminPage.tsx` só pede o Tipo ao criar um plantão. Detalhe
+completo, incluindo a coordenação com outra sessão que rodava em paralelo no
+mesmo Postgres de dev, em
+[SESSIONS/15-09-2026.md](SESSIONS/15-09-2026.md#sessão-seguinte-mesmo-dia-unificar-turno-e-tipo-de-plantão).
+
+## 8. Convites de agenda em massa — concluído em 15/09/2026
+
+Pedido: novo módulo pra criar eventos na agenda dos colaboradores já
+conectados ao Google Agenda, com convite em massa (vários destinatários de
+uma vez). Antes de agendar, validar se já existe evento no horário e mostrar
+a divergência (como o próprio Google Agenda faz). Quem não conectou a Agenda
+Google aparece como indisponível, sem poder ser selecionado.
+
+Implementado: módulo `backend/src/convites-agenda/` (`ADMIN`-only, sem
+rotina própria), modelos `ConviteAgendaEvento`/`ConviteAgendaDestinatario`
+(migration `20260915195810_convites_agenda_eventos`), `GET
+/convites-agenda/colaboradores` (lista com `disponivel`), `POST
+/convites-agenda/verificar` (divergência antes de criar, via
+`GoogleCalendarClient.listarNoIntervalo`, novo), `POST /convites-agenda`
+(cria por destinatário, status `CRIADO`/`INDISPONIVEL`/`FALHA`), `PATCH
+/convites-agenda/:id` (edita título/descrição/local/horário e propaga pra
+quem já tinha o evento, sem mexer em destinatários), `POST
+/convites-agenda/:id/reenviar` e `/cancelar`. Reaproveita inteiramente a
+autorização e o cliente já existentes em `agenda-google/` — nenhuma mudança
+de escopo OAuth. Frontend em `frontend/src/modules/convites-agenda/`, rota
+`/convites-agenda`, `ConviteAgendaDialog.tsx` atende criar e editar (mesmo
+componente, como `ReservaDialog`). Detalhe completo, incluindo a coordenação
+com outra sessão que aplicava uma migration em paralelo no mesmo Postgres de
+dev, em
+[SESSIONS/15-09-2026.md](SESSIONS/15-09-2026.md#sessão-em-paralelo-mesmo-dia-convites-de-agenda-em-massa).
+
+Não implementado, deliberadamente fora do escopo desta v1: evento único com
+organizador/convidados via Google (exigiria delegação de domínio, que este
+projeto não usa — cada destinatário recebe sua própria cópia do evento, como
+plantões/reservas já fazem); adicionar ou remover destinatário de um convite
+já enviado (editar só muda os dados do evento; pra mudar quem recebe, cria
+um convite novo); busca/filtro na lista de colaboradores do diálogo (lista
+simples, sem paginação — ok pro tamanho atual do quadro).
