@@ -1,0 +1,85 @@
+name: portal-backoffice-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-portal_backoffice}
+      POSTGRES_USER: ${POSTGRES_USER:-portal_backoffice}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  backend:
+    image: ${DOCKER_NAMESPACE:?Defina DOCKER_NAMESPACE}/portal-backoffice-backend:${IMAGE_TAG:?Defina IMAGE_TAG com sha-commit}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      DATABASE_URL: postgresql://${POSTGRES_USER:-portal_backoffice}:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-portal_backoffice}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Defina JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Defina JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:?Defina CORS_ORIGIN com a origem publica}
+      COOKIE_PATH: /api/auth/refresh
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      GOOGLE_AUTH_ENABLED: ${GOOGLE_AUTH_ENABLED:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_ALLOWED_DOMAINS: ${GOOGLE_ALLOWED_DOMAINS:-}
+      GOOGLE_AUTO_PROVISION: ${GOOGLE_AUTO_PROVISION:-false}
+      GOOGLE_CALENDAR_ENABLED: ${GOOGLE_CALENDAR_ENABLED:-false}
+      GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_CALENDAR_OAUTH_REDIRECT_URI: ${GOOGLE_CALENDAR_OAUTH_REDIRECT_URI:-}
+      GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY: ${GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY:-}
+      GOOGLE_CALENDAR_TIMEZONE: ${GOOGLE_CALENDAR_TIMEZONE:-America/Sao_Paulo}
+      GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-}
+      RUN_SEED: ${RUN_SEED:-false}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrador}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3333/health', {signal: AbortSignal.timeout(3000)}).then(r => {if (!r.ok) process.exit(1)}).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging: *logging
+
+  web:
+    image: ${DOCKER_NAMESPACE:?Defina DOCKER_NAMESPACE}/portal-backoffice-web:${IMAGE_TAG:?Defina IMAGE_TAG com sha-commit}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -T 3 -O /dev/null http://127.0.0.1/ && wget -q -T 3 -O /dev/null http://127.0.0.1/api/health']
+      interval: 10s
+      timeout: 8s
+      retries: 6
+      start_period: 15s
+    logging: *logging
+
+volumes:
+  postgres_data:
+  uploads_data:

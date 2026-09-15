@@ -1,0 +1,23 @@
+name: portal-backoffice
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: portal-backoffice-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: portal_backoffice
+      POSTGRES_PASSWORD: portal_backoffice
+      POSTGRES_DB: portal_backoffice
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal_backoffice -d portal_backoffice"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

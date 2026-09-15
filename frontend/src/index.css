@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Design tokens — paleta Tangram (base RD Station) sobre o
+   contrato de nomes do shell do Portal do Suporte.
+   Espelho de tangram-dashboard-template/src/index.css.
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* Marca */
+    --color-primary: #0077b2;
+    --color-primary-hover: #005e8c;
+    --color-primary-soft: #b2f4ff;
+    --color-accent: #00dbff;
+    --color-accent-soft: #b2f4ff;
+    --color-teal: #11a7b6;
+    --color-teal-soft: #81f0d8;
+    --color-purple: #8800f7;
+    --color-purple-soft: #dbb2fc;
+
+    /* Superfícies */
+    --color-background: #ffffff;
+    --color-surface: #ffffff;
+    --color-surface-elevated: #ffffff;
+    --color-surface-hover: #e5e8ea;
+    --color-surface-dark: #002233;
+
+    /* Bordas */
+    --color-border: #d6dbde;
+    --color-border-strong: #b2bcc1;
+    --color-border-focus: #0077b2;
+
+    /* Texto */
+    --color-text-primary: #002233;
+    --color-text-secondary: #405466;
+    --color-text-muted: #7f8d99;
+    --color-text-inverse: #ffffff;
+
+    /* Semânticas — tom sólido para texto/ícone, soft para fundo */
+    --color-success: #0e7a4a;
+    --color-success-soft: #d6fce9;
+    --color-warning: #8a5300;
+    --color-warning-soft: #fdebcb;
+    --color-danger: #b31d1d;
+    --color-danger-soft: #fbdddd;
+
+    --color-overlay: rgb(0 34 51 / 40%);
+
+    /* Shell */
+    --shell-size: 64px;
+    --shell-radius: 20px;
+    --shell-header-bg: #001824;
+    --rail-hover: rgb(255 255 255 / 12%);
+    --rail-active: #00dbff;
+    --tooltip-bg: #001824;
+    --page-px: 24px;
+
+    /* Formas — Tangram: cards 16px, botões 12px */
+    --radius-card: 16px;
+    --radius-button: 12px;
+    --radius-field: 12px;
+    --radius-pill: 999px;
+
+    /* Elevação — o Tangram tem uma sombra só */
+    --shadow-elevation: 0 4px 12px rgb(0 34 51 / 14%);
+
+    /* Gradientes — escuro no topo (encosta no header) → mais claro na base */
+    --gradient-rail: linear-gradient(180deg, #001824 0%, #002233 55%, #003d5c 100%);
+    --gradient-brand: linear-gradient(135deg, #0077b2 0%, #00dbff 100%);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* O foco visível vale para todo componente interativo, sem repetir a regra
+     em cada primitiva. */
+  :focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Caixas de seleção na cor de ação, sem precisar de componente próprio. */
+  input[type='checkbox'] {
+    accent-color: var(--color-primary);
+  }
+}
+
+@layer components {
+  /* Gradiente do shell ancorado à viewport, para que o rail mantenha a mesma
+     rampa de cor independentemente da altura do conteúdo. */
+  .bg-gradient-rail {
+    background-image: var(--gradient-rail);
+    background-attachment: fixed;
+  }
+
+  /* Barrinha do item ativo do rail: 6px de largura, altura total do item,
+     cantos arredondados só à esquerda, encostada na borda direita do rail.
+     O `right` negativo leva a barra do botão (centralizado, 40px) até a borda
+     do rail (64px) — daí o cálculo com --shell-size. */
+  .rail-active-mark {
+    position: absolute;
+    top: 0;
+    right: calc((100% - var(--shell-size)) / 2);
+    width: 6px;
+    height: 100%;
+    border-radius: 4px 0 0 4px;
+    background-color: var(--rail-active);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

@@ -1,0 +1,105 @@
+/* ============================================================
+   Tangram Dashboard Template — design tokens
+   Paleta Tangram (base RD Station) sobre o contrato de nomes
+   do shell do Portal do Suporte.
+
+   ⚠️ Espelho de src/index.css. Mudou um token aqui? Mude lá também.
+   ============================================================ */
+
+:root {
+  /* ---------------------------------------------------- Marca */
+  --color-primary: #0077b2;        /* ação primária / links */
+  --color-primary-hover: #005e8c;
+  --color-primary-soft: #b2f4ff;   /* fundo de botão/badge primário */
+  --color-accent: #00dbff;         /* cyan assinatura */
+  --color-accent-soft: #b2f4ff;
+  --color-teal: #11a7b6;
+  --color-teal-soft: #81f0d8;
+  --color-purple: #8800f7;
+  --color-purple-soft: #dbb2fc;
+
+  /* ----------------------------------------------- Superfícies */
+  --color-background: #ffffff;     /* fundo da área de conteúdo */
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-hover: #e5e8ea;
+  --color-surface-dark: #002233;
+
+  /* ---------------------------------------------------- Bordas */
+  --color-border: #d6dbde;
+  --color-border-strong: #b2bcc1;
+  --color-border-focus: #0077b2;
+
+  /* ---------------------------------------------------- Texto */
+  --color-text-primary: #002233;
+  --color-text-secondary: #405466;
+  --color-text-muted: #7f8d99;
+  --color-text-inverse: #ffffff;
+
+  /* ------------------------------------------------ Semânticas
+     Tom sólido para texto/ícone, "soft" para fundo. Os acentos
+     crus do Tangram (#27F182) não têm contraste para texto. */
+  --color-success: #0e7a4a;
+  --color-success-soft: #d6fce9;
+  --color-warning: #8a5300;
+  --color-warning-soft: #fdebcb;
+  --color-danger: #b31d1d;
+  --color-danger-soft: #fbdddd;
+
+  --color-overlay: rgb(0 34 51 / 40%);
+
+  /* ---------------------------------------------------- Shell */
+  --shell-size: 64px;              /* altura do header = largura do rail */
+  --shell-header-bg: #001824;      /* header sólido, no topo do gradiente */
+  --shell-radius: 20px;            /* canto superior esquerdo do <main> */
+  --rail-hover: rgb(255 255 255 / 12%);
+  --rail-active: #00dbff;          /* barra do item ativo */
+  --tooltip-bg: #001824;
+  --page-px: 24px;
+
+  /* --------------------------------------------------- Formas */
+  --radius-card: 16px;
+  --radius-button: 12px;
+  --radius-field: 12px;
+  --radius-pill: 999px;
+
+  /* ------------------------------------------------- Elevação
+     O Tangram tem uma sombra só. */
+  --shadow-elevation: 0 4px 12px rgb(0 34 51 / 14%);
+
+  /* ----------------------------------------------- Gradientes
+     Escuro no topo (encosta no header) → mais claro na base. */
+  --gradient-rail: linear-gradient(180deg, #001824 0%, #002233 55%, #003d5c 100%);
+  --gradient-brand: linear-gradient(135deg, #0077b2 0%, #00dbff 100%);
+
+  /* ----------------------------------------------- Tipografia
+     DM Sans no corpo (Tangram) + Bricolage Grotesque nos títulos de
+     display, como no shell do CS-OPS. */
+  --font-family-base: "DM Sans", "Nunito Sans", "Open Sans", Arial, sans-serif;
+  --font-family-display: "Bricolage Grotesque", "DM Sans", system-ui, sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --font-weight-black: 900;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-sm-2: 13px;
+  --font-size-md: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 28px;
+  --font-size-3xl: 36px;
+
+  --line-height-base: 1.5;
+
+  /* -------------------------------------------------- Espaço */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+}

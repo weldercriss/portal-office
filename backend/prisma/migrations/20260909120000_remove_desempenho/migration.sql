@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS "Feedback";
+DROP TABLE IF EXISTS "PdiItem";
+DROP TABLE IF EXISTS "Meta";
+DROP TABLE IF EXISTS "AvaliacaoDesempenho";
+
+DROP TYPE IF EXISTS "StatusMeta";
+DROP TYPE IF EXISTS "TipoAvaliacao";

@@ -1,0 +1,16 @@
+.worktrees/
+node_modules/
+dist/
+.env
+coverage/
+.env.*
+!.env.example
+!.env.production.example
+ssh/
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+backups/
+.deployed-tag*
+.previous-tag

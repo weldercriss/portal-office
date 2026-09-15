@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Style guide — Tangram Dashboard Template</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="tokens/variables.css" />
+    <link rel="stylesheet" href="tokens/components.css" />
+    <style>
+      /* Estilos só do style guide — não fazem parte do design system. */
+      .sg-section { margin-bottom: var(--space-12); }
+      .sg-section > h2 {
+        margin: 0 0 var(--space-2);
+        font-size: var(--font-size-lg);
+        font-weight: var(--font-weight-black);
+      }
+      .sg-section > p {
+        margin: 0 0 var(--space-6);
+        font-size: var(--font-size-md);
+        color: var(--color-text-secondary);
+      }
+      .sg-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+      .sg-grid { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+      .sg-swatch {
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-button);
+        overflow: hidden;
+        background: var(--color-surface);
+      }
+      .sg-swatch__chip { height: 56px; }
+      .sg-swatch__meta { padding: var(--space-2) var(--space-3); }
+      .sg-swatch__name { display: block; font-size: var(--font-size-sm-2); font-weight: var(--font-weight-bold); }
+      .sg-swatch__value {
+        display: block;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      /* Miniatura do shell, para ver a relação header / rail / conteúdo. */
+      .sg-shell-demo {
+        height: 260px;
+        border-radius: var(--radius-card);
+        overflow: hidden;
+        border: 1px solid var(--color-border);
+      }
+      .sg-shell-demo .ds-shell { height: 100%; }
+      .sg-shell-demo .ds-shell__main { padding: var(--space-6); }
+      .sg-scale-row {
+        display: flex;
+        align-items: baseline;
+        gap: var(--space-4);
+        padding: var(--space-2) 0;
+        border-bottom: 1px solid var(--color-border);
+      }
+      .sg-scale-row code {
+        min-width: 88px;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="ds-shell">
+      <header class="ds-shell__header">
+        <div style="display: flex; align-items: center; gap: var(--space-4)">
+          <strong style="font-weight: var(--font-weight-black)">SURI SHOP</strong>
+          <div style="width: 1px; height: 24px; background: rgb(255 255 255 / 20%)"></div>
+          <span class="ds-shell__product">Style guide</span>
+        </div>
+        <span style="font-size: var(--font-size-md); opacity: 0.9">Tangram Dashboard Template</span>
+      </header>
+
+      <div class="ds-shell__body">
+        <nav class="ds-shell__rail">
+          <button class="ds-rail__item" aria-current="page" aria-label="Ativo">◧</button>
+          <button class="ds-rail__item" aria-label="Item">◫</button>
+          <button class="ds-rail__item" aria-label="Item">◪</button>
+        </nav>
+
+        <main class="ds-shell__main">
+          <div class="ds-page">
+            <h1 class="ds-page-title">Tangram Dashboard Template</h1>
+            <p class="ds-page-description">
+              Paleta e tipografia do design system Tangram (RD Station) sobre a estrutura de shell do Portal do
+              Suporte. Tudo abaixo consome <code>tokens/variables.css</code>.
+            </p>
+
+            <hr style="margin: var(--space-8) 0; border: 0; border-top: 1px solid var(--color-border)" />
+
+            <!-- ------------------------------------------------ Shell -->
+            <section class="sg-section">
+              <h2>Shell</h2>
+              <p>
+                Header sólido de <code>--shell-size</code> (64px) em <code>--shell-header-bg</code>, e rail da mesma
+                largura sobre <code>--gradient-rail</code>. O conteúdo é uma superfície clara com o canto superior
+                esquerdo em <code>--shell-radius</code> (20px) — é esse recorte que dá o efeito de "camada".
+              </p>
+              <p>
+                <strong>O shell é fixo:</strong> a raiz é <code>height: 100dvh; overflow: hidden</code> e só
+                <code>.ds-shell__main</code> rola. Header e rail nunca saem da tela. Não há ícone de logout no rail —
+                a conta vive no header.
+              </p>
+              <div class="sg-shell-demo">
+                <div class="ds-shell">
+                  <div class="ds-shell__header">
+                    <strong class="ds-shell__product">Marca · Produto</strong>
+                    <span style="font-size: var(--font-size-md)">Ana Prado</span>
+                  </div>
+                  <div class="ds-shell__body">
+                    <nav class="ds-shell__rail">
+                      <button class="ds-rail__item" aria-current="page">◧</button>
+                      <button class="ds-rail__item">◫</button>
+                    </nav>
+                    <div class="ds-shell__main">
+                      <div class="ds-card ds-card--elevated">Conteúdo da página</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ------------------------------------------------ Cores -->
+            <section class="sg-section">
+              <h2>Paleta</h2>
+              <p>Marca e superfícies.</p>
+              <div class="sg-grid">
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--color-accent)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">accent</span><span class="sg-swatch__value">#00DBFF</span>
+                  </div>
+                </div>
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--color-primary-soft)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">primary-soft</span><span class="sg-swatch__value">#B2F4FF</span>
+                  </div>
+                </div>
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--color-primary)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">primary</span><span class="sg-swatch__value">#0077B2</span>
+                  </div>
+                </div>
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--color-teal)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">teal</span><span class="sg-swatch__value">#11A7B6</span>
+                  </div>
+                </div>
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--color-purple)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">purple</span><span class="sg-swatch__value">#8800F7</span>
+                  </div>
+                </div>
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--color-surface-dark)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">surface-dark</span><span class="sg-swatch__value">#002233</span>
+                  </div>
+                </div>
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--color-background)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">background</span><span class="sg-swatch__value">#EDEFF1</span>
+                  </div>
+                </div>
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--color-surface-hover)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">surface-hover</span><span class="sg-swatch__value">#E5E8EA</span>
+                  </div>
+                </div>
+                <div class="sg-swatch">
+                  <div class="sg-swatch__chip" style="background: var(--gradient-rail)"></div>
+                  <div class="sg-swatch__meta">
+                    <span class="sg-swatch__name">gradient-rail</span
+                    ><span class="sg-swatch__value">#003D5C → #001824</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ------------------------------------------- Tipografia -->
+            <section class="sg-section">
+              <h2>Tipografia</h2>
+              <p>
+                Duas famílias: <strong>Bricolage Grotesque</strong> nos títulos de display e <strong>DM Sans</strong>
+                no corpo e na UI, onde o contraste vem do peso.
+              </p>
+              <div class="sg-scale-row">
+                <code>Bricolage 28/700</code>
+                <span class="ds-page-title">Título de página</span>
+              </div>
+              <div class="sg-scale-row">
+                <code>Bricolage 20/700</code>
+                <span style="font-family: var(--font-family-display); font-size: 20px; font-weight: 700; letter-spacing: -0.3px"
+                  >Título de seção</span
+                >
+              </div>
+              <div class="sg-scale-row">
+                <code>DM Sans 16/400</code>
+                <span style="font-size: 16px">Corpo de texto padrão, line-height 1.5</span>
+              </div>
+              <div class="sg-scale-row">
+                <code>DM Sans 14/700</code>
+                <span style="font-size: 14px; font-weight: 700">Rótulo de UI / botão</span>
+              </div>
+              <div class="sg-scale-row">
+                <code>DM Sans 13/700</code>
+                <span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em"
+                  >Cabeçalho de card</span
+                >
+              </div>
+              <div class="sg-scale-row">
+                <code>DM Sans 12/400</code>
+                <span style="font-size: 12px; color: var(--color-text-muted)">Texto auxiliar</span>
+              </div>
+            </section>
+
+            <!-- ----------------------------------------------- Botões -->
+            <section class="sg-section">
+              <h2>Botões</h2>
+              <p>Raio 12px, peso 700. O primário é o par cyan-soft + blue — a assinatura do Tangram.</p>
+              <div class="sg-row">
+                <button class="ds-btn ds-btn--primary">Primário</button>
+                <button class="ds-btn ds-btn--secondary">Secundário</button>
+                <button class="ds-btn ds-btn--ghost">Ghost</button>
+                <button class="ds-btn ds-btn--primary" disabled>Desabilitado</button>
+                <button class="ds-btn ds-btn--primary ds-btn--sm">Pequeno</button>
+              </div>
+            </section>
+
+            <!-- ----------------------------------------------- Badges -->
+            <section class="sg-section">
+              <h2>Badges</h2>
+              <p>Pílulas por tom. Fundo "soft", texto no tom sólido.</p>
+              <div class="sg-row">
+                <span class="ds-badge ds-badge--cyan">Lead</span>
+                <span class="ds-badge ds-badge--blue">Administrador</span>
+                <span class="ds-badge ds-badge--teal">Cliente</span>
+                <span class="ds-badge ds-badge--purple">MQL</span>
+                <span class="ds-badge">Neutro</span>
+                <span class="ds-badge ds-badge--success">Ativo</span>
+                <span class="ds-badge ds-badge--warning">Pendente</span>
+                <span class="ds-badge ds-badge--danger">Bloqueado</span>
+              </div>
+            </section>
+
+            <!-- --------------------------------------------- KPI cards -->
+            <section class="sg-section">
+              <h2>KPI cards</h2>
+              <p>Estágio ativo em cyan sólido, inativos em cinza neutro, com o selo de conversão entre eles.</p>
+              <div class="sg-row" style="align-items: stretch">
+                <div class="ds-kpi ds-kpi--active">
+                  <span class="ds-kpi__label">Visitantes</span>
+                  <span class="ds-kpi__value">8.421</span>
+                  <span class="ds-kpi__delta">+12,4%</span>
+                </div>
+                <div style="display: flex; align-items: center"><span class="ds-conversion">9,1%</span></div>
+                <div class="ds-kpi">
+                  <span class="ds-kpi__label">Leads</span>
+                  <span class="ds-kpi__value">766</span>
+                  <span class="ds-kpi__delta">+6,8%</span>
+                </div>
+                <div style="display: flex; align-items: center"><span class="ds-conversion">34,2%</span></div>
+                <div class="ds-kpi">
+                  <span class="ds-kpi__label">Qualificados</span>
+                  <span class="ds-kpi__value">262</span>
+                  <span class="ds-kpi__delta ds-kpi__delta--negative">−4,1%</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- ----------------------------------------------- Campos -->
+            <section class="sg-section">
+              <h2>Campos</h2>
+              <p>Altura 40px, raio 12px, borda que vira <code>--color-border-focus</code> no foco.</p>
+              <div style="display: grid; gap: var(--space-4); max-width: 420px">
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <label class="ds-label" for="sg-nome">Nome</label>
+                  <input class="ds-field" id="sg-nome" placeholder="Ana Prado" />
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <label class="ds-label" for="sg-dep">Departamento</label>
+                  <select class="ds-field" id="sg-dep">
+                    <option>Marketing</option>
+                    <option>Vendas</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <!-- ------------------------------------------------ Card -->
+            <section class="sg-section">
+              <h2>Card, tabela e alerta</h2>
+              <p>Card 16px com borda 1px; a sombra é opcional (<code>--elevated</code>) e só existe uma.</p>
+              <div style="display: grid; gap: var(--space-6)">
+                <div class="ds-alert">
+                  <div>
+                    <strong>Conecte o Google Analytics 4</strong>
+                    <p style="margin: 4px 0 0; font-size: var(--font-size-md); color: var(--color-text-secondary)">
+                      Integre sua conta do GA4 para visualizar dados de visitantes e origens de tráfego.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="ds-card ds-card--elevated" style="padding: var(--space-2)">
+                  <table class="ds-table">
+                    <thead>
+                      <tr>
+                        <th>Lead</th>
+                        <th>Origem</th>
+                        <th>Estágio</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><strong style="color: var(--color-text-primary)">Marina Alves</strong></td>
+                        <td>Landing: E-book Café Especial</td>
+                        <td><span class="ds-badge ds-badge--purple">MQL</span></td>
+                      </tr>
+                      <tr>
+                        <td><strong style="color: var(--color-text-primary)">Bruno Tavares</strong></td>
+                        <td>Formulário: Newsletter</td>
+                        <td><span class="ds-badge ds-badge--cyan">Lead</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="ds-card">
+                  <h3 class="ds-card__title">Origem do tráfego</h3>
+                  <p style="margin: 0; color: var(--color-text-secondary)">
+                    Card sem elevação — a borda basta quando o card está sobre o fundo claro.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <!-- ----------------------------------------------- Ícones -->
+            <section class="sg-section">
+              <h2>Ícones</h2>
+              <p>
+                Navegação usa o conjunto Tangram do CS-OPS, em <code>public/assets/svg/</code>, aplicado por CSS
+                <code>mask</code> para herdar <code>currentColor</code>. Ícones miúdos de UI (busca, editar, remover,
+                fechar) vêm do <code>lucide-react</code> — mesma divisão do staging.
+              </p>
+              <div class="sg-row" style="color: var(--color-text-primary)">
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/home.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/home.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/settings.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/settings.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/user.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/user.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/users.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/users.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/org.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/org.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/building.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/building.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/inbox.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/inbox.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/forms.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/forms.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/graduation.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/graduation.svg) center/contain no-repeat"></span>
+                <span style="display:inline-block;width:24px;height:24px;background:currentColor;mask:url(../public/assets/svg/grid.svg) center/contain no-repeat;-webkit-mask:url(../public/assets/svg/grid.svg) center/contain no-repeat"></span>
+                <span style="font-size: var(--font-size-sm); color: var(--color-text-muted)">+ 32 outros</span>
+              </div>
+            </section>
+
+            <!-- ------------------------------------------- Fundamentos -->
+            <section class="sg-section">
+              <h2>Formas e elevação</h2>
+              <div class="sg-row">
+                <div
+                  style="width: 120px; height: 72px; border-radius: var(--radius-card); background: var(--color-surface); border: 1px solid var(--color-border); display: grid; place-items: center; font-size: var(--font-size-sm)"
+                >
+                  card 16px
+                </div>
+                <div
+                  style="width: 120px; height: 72px; border-radius: var(--radius-button); background: var(--color-surface); border: 1px solid var(--color-border); display: grid; place-items: center; font-size: var(--font-size-sm)"
+                >
+                  botão 12px
+                </div>
+                <div
+                  style="width: 120px; height: 72px; border-radius: var(--shell-radius); background: var(--color-surface); border: 1px solid var(--color-border); display: grid; place-items: center; font-size: var(--font-size-sm)"
+                >
+                  shell 20px
+                </div>
+                <div
+                  style="width: 160px; height: 72px; border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-elevation); display: grid; place-items: center; font-size: var(--font-size-sm)"
+                >
+                  sombra única
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

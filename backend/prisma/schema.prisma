@@ -1,0 +1,769 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum AuthChallengeFinalidade {
+  LOGIN
+  VINCULO
+}
+
+enum AgendaGoogleConexaoStatus {
+  CONECTADA
+  RECONECTAR
+  DESCONECTADA
+}
+
+enum PlantaoStatus {
+  RASCUNHO
+  PUBLICADO
+}
+
+enum RegraRecorrenciaPlantao {
+  UNICO
+  SEMANAL
+  MENSAL
+}
+
+enum TrocaStatus {
+  PENDENTE
+  ACEITA
+  REJEITADA
+}
+
+enum SolicitacaoStatus {
+  SOLICITADA
+  APROVADA
+  REJEITADA
+  CANCELADA
+}
+
+enum StatusColaborador {
+  ATIVO
+  AFASTADO
+  FERIAS
+  DESLIGADO
+}
+
+enum StatusChecklistItem {
+  PENDENTE
+  CONCLUIDO
+}
+
+enum EtapaCandidato {
+  TRIAGEM
+  ENTREVISTA
+  AVALIACAO
+  APROVADO
+  REPROVADO
+}
+
+enum TipoDocumentoColaborador {
+  CONTRATO
+  COMPROVANTE
+  POLITICA
+  HOLERITE
+  ASSINADO
+  OUTRO
+}
+
+enum StatusTreinamento {
+  PENDENTE
+  CONCLUIDO
+}
+
+/// Reserva de sala. SOLICITADA e CONFIRMADA ocupam o horario; so CANCELADA o
+/// libera para outra pessoa.
+enum ReservaDestinatarios {
+  SOLICITANTE
+  RESPONSAVEL
+  AMBOS
+}
+
+enum ReservaStatus {
+  SOLICITADA
+  CONFIRMADA
+  CANCELADA
+}
+
+/// Conservacao fisica do item, registrada na compra e reavaliada a cada
+/// devolucao. Nao diz onde o item esta -- isso e EquipamentoStatus.
+enum EstadoEquipamento {
+  NOVO
+  BOM
+  REGULAR
+  RUIM
+  DANIFICADO
+}
+
+/// Onde o item esta no ciclo de vida. EM_COMPRA e AGUARDANDO_CHEGADA sao itens
+/// que ainda nao existem fisicamente na Suri; so ESTOQUE aceita nova alocacao.
+enum EquipamentoStatus {
+  EM_COMPRA
+  AGUARDANDO_CHEGADA
+  ESTOQUE
+  EM_USO
+  MANUTENCAO
+  BAIXADO
+}
+
+/// Andamento do termo de responsabilidade. PENDENTE, ENTREGUE e ASSINADO
+/// prendem o item ao colaborador; DEVOLVIDO e CANCELADA o soltam de volta.
+enum AlocacaoStatus {
+  PENDENTE
+  ENTREGUE
+  ASSINADO
+  DEVOLVIDO
+  CANCELADA
+}
+
+model User {
+  id                       String                    @id @default(uuid())
+  nome                     String
+  email                    String                    @unique
+  senhaHash                String
+  acessoPlataforma         Boolean                   @default(false)
+  role                     Role                      @default(USER)
+  groupId                  String?
+  group                    Group?                    @relation(fields: [groupId], references: [id])
+  ativo                    Boolean                   @default(true)
+  criadoEm                 DateTime                  @default(now())
+  googleSub                String?                   @unique
+  googleLinkedAt           DateTime?
+  agendaGoogleAtiva        Boolean                   @default(true)
+  dataNascimento           DateTime?
+  dataAdmissao             DateTime?
+  telefone                 String?
+  telegramUsername         String?
+  telegramChatId           String?
+  recebeAvisosRH           Boolean                   @default(false)
+  subAreaId                String?
+  subArea                  SubArea?                  @relation(fields: [subAreaId], references: [id])
+  senioridade              String?
+  cargo                    String?
+  gestorId                 String?
+  gestor                   User?                     @relation("UserGestor", fields: [gestorId], references: [id])
+  subordinados             User[]                    @relation("UserGestor")
+  salario                  Decimal?                  @db.Decimal(12, 2)
+  beneficios               String?
+  statusColaborador        StatusColaborador         @default(ATIVO)
+  bancoNome                String?
+  bancoAgencia             String?
+  bancoConta               String?
+  bancoTipoConta           String?
+  plantoesAtendidos        Plantao[]                 @relation("PlantaoAtendente")
+  plantoesCriados          Plantao[]                 @relation("PlantaoCriadoPor")
+  plantoesSerieCriadas     PlantaoSerie[]            @relation("PlantaoSerieCriadoPor")
+  trocasSolicitadas        TrocaPlantao[]            @relation("TrocaPlantaoSolicitante")
+  trocasRecebidas          TrocaPlantao[]            @relation("TrocaPlantaoDestinatario")
+  notificacoes             Notificacao[]
+  solicitacoes             Solicitacao[]             @relation("SolicitacaoColaborador")
+  solicitacoesDecididas    Solicitacao[]             @relation("SolicitacaoDecididoPor")
+  solicitacoesRegistradas  Solicitacao[]             @relation("SolicitacaoRegistradoPor")
+  solicitacoesResponsavel  Solicitacao[]             @relation("SolicitacaoResponsavel")
+  departamentosResponsavel Group[]                   @relation("GroupResponsavel")
+  overridesRotina          UserRotinaOverride[]
+  dependentes              Dependente[]
+  historicoProfissional    HistoricoProfissional[]
+  checklistAdmissao        ChecklistAdmissaoItem[]
+  entrevistasConduzidas    Entrevista[]              @relation("EntrevistaEntrevistador")
+  documentos               DocumentoColaborador[]    @relation("DocumentoColaborador")
+  documentosCriados        DocumentoColaborador[]    @relation("DocumentoCriadoPor")
+  treinamentos             TreinamentoParticipante[]
+  agendaGoogleConexao      AgendaGoogleConexao?
+  reservasSolicitadas      Reserva[]                 @relation("ReservaSolicitante")
+  reservasResponsavel      Reserva[]                 @relation("ReservaResponsavel")
+  reservasRegistradas      Reserva[]                 @relation("ReservaRegistradoPor")
+  equipamentos             AlocacaoEquipamento[]     @relation("AlocacaoColaborador")
+  alocacoesRegistradas     AlocacaoEquipamento[]     @relation("AlocacaoRegistradoPor")
+}
+
+model Group {
+  id            String        @id @default(uuid())
+  nome          String
+  ativo         Boolean       @default(true)
+  fazPlantao    Boolean       @default(false)
+  responsavelId String?
+  responsavel   User?         @relation("GroupResponsavel", fields: [responsavelId], references: [id])
+  users         User[]
+  rotinas       GroupRotina[]
+  subAreas      SubArea[]
+  vagas         Vaga[]
+}
+
+model SubArea {
+  id      String  @id @default(uuid())
+  nome    String
+  ativo   Boolean @default(true)
+  groupId String
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  users   User[]
+
+  @@unique([groupId, nome])
+}
+
+model Rotina {
+  id        String               @id @default(uuid())
+  chave     String               @unique
+  nome      String
+  ativo     Boolean              @default(true)
+  grupos    GroupRotina[]
+  overrides UserRotinaOverride[]
+}
+
+model GroupRotina {
+  id       String @id @default(uuid())
+  groupId  String
+  group    Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  rotinaId String
+  rotina   Rotina @relation(fields: [rotinaId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, rotinaId])
+}
+
+model UserRotinaOverride {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rotinaId  String
+  rotina    Rotina  @relation(fields: [rotinaId], references: [id], onDelete: Cascade)
+  concedida Boolean
+
+  @@unique([userId, rotinaId])
+}
+
+model Turno {
+  id         String    @id @default(uuid())
+  nome       String
+  horaInicio String
+  horaFim    String
+  ativo      Boolean   @default(true)
+  criadoEm   DateTime  @default(now())
+  plantoes   Plantao[]
+}
+
+model TipoPlantao {
+  id       String                  @id @default(uuid())
+  nome     String
+  regra    RegraRecorrenciaPlantao
+  ativo    Boolean                 @default(true)
+  criadoEm DateTime                @default(now())
+  plantoes Plantao[]
+  series   PlantaoSerie[]
+}
+
+model PlantaoSerie {
+  id            String      @id @default(uuid())
+  tipoPlantaoId String
+  tipoPlantao   TipoPlantao @relation(fields: [tipoPlantaoId], references: [id])
+  dataInicio    DateTime
+  dataFim       DateTime
+  diasSemana    Int[]
+  criadoPorId   String
+  criadoPor     User        @relation("PlantaoSerieCriadoPor", fields: [criadoPorId], references: [id])
+  criadoEm      DateTime    @default(now())
+  plantoes      Plantao[]
+}
+
+model Plantao {
+  id            String         @id @default(uuid())
+  nome          String?
+  data          DateTime
+  userId        String?
+  user          User?          @relation("PlantaoAtendente", fields: [userId], references: [id])
+  criadoPorId   String
+  criadoPor     User           @relation("PlantaoCriadoPor", fields: [criadoPorId], references: [id])
+  status        PlantaoStatus  @default(RASCUNHO)
+  turnoId       String?
+  turno         Turno?         @relation(fields: [turnoId], references: [id])
+  tipoPlantaoId String?
+  tipoPlantao   TipoPlantao?   @relation(fields: [tipoPlantaoId], references: [id])
+  serieId       String?
+  serie         PlantaoSerie?  @relation(fields: [serieId], references: [id], onDelete: Cascade)
+  criadoEm      DateTime       @default(now())
+  atualizadoEm  DateTime       @updatedAt
+  trocasOrigem  TrocaPlantao[] @relation("TrocaPlantaoOrigem")
+  trocasDestino TrocaPlantao[] @relation("TrocaPlantaoDestino")
+}
+
+model TrocaPlantao {
+  id               String      @id @default(uuid())
+  plantaoOrigemId  String
+  plantaoOrigem    Plantao     @relation("TrocaPlantaoOrigem", fields: [plantaoOrigemId], references: [id], onDelete: Cascade)
+  plantaoDestinoId String
+  plantaoDestino   Plantao     @relation("TrocaPlantaoDestino", fields: [plantaoDestinoId], references: [id], onDelete: Cascade)
+  solicitanteId    String
+  solicitante      User        @relation("TrocaPlantaoSolicitante", fields: [solicitanteId], references: [id])
+  destinatarioId   String
+  destinatario     User        @relation("TrocaPlantaoDestinatario", fields: [destinatarioId], references: [id])
+  status           TrocaStatus @default(PENDENTE)
+  criadoEm         DateTime    @default(now())
+  respondidoEm     DateTime?
+}
+
+model Notificacao {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tipo     String
+  titulo   String
+  mensagem String
+  link     String?
+  lida     Boolean  @default(false)
+  criadoEm DateTime @default(now())
+}
+
+model TelegramConfig {
+  id       String  @id @default(uuid())
+  botToken String
+  ativo    Boolean @default(true)
+}
+
+/// Grupos/tópicos conectados pra onde os eventos com "enviarGrupo" ligado são
+/// postados — um evento vai pra todos os grupos conectados, não só pra um.
+model TelegramGrupoConectado {
+  id       String   @id @default(uuid())
+  chatId   String
+  /// message_thread_id do tópico do grupo. "" posta no chat geral.
+  topicId  String   @default("")
+  /// Só pra exibição na tela de Configurações — não usado pra enviar nada.
+  nome     String?
+  criadoEm DateTime @default(now())
+
+  @@unique([chatId, topicId])
+}
+
+model TelegramNotificacaoTipo {
+  id          String  @id @default(uuid())
+  tipo        String  @unique
+  nome        String
+  enviar      Boolean @default(false)
+  /// Além do aviso pessoal, também posta no grupo configurado (só pros tipos que suportam grupo).
+  enviarGrupo Boolean @default(false)
+}
+
+/// Grupos/tópicos que o bot já viu (por mensagem recebida via webhook), pra o
+/// admin escolher com um clique em vez de digitar chat_id/topic_id manualmente.
+model TelegramGrupoDetectado {
+  id        String   @id @default(uuid())
+  chatId    String
+  chatTitle String?
+  /// "" quando a mensagem não pertence a um tópico (chat geral do grupo).
+  topicId   String   @default("")
+  vistoEm   DateTime @updatedAt
+
+  @@unique([chatId, topicId])
+}
+
+model TipoSolicitacao {
+  id                   String        @id @default(uuid())
+  nome                 String
+  ativo                Boolean       @default(true)
+  requerAprovacao      Boolean       @default(true)
+  contaComoAfastamento Boolean       @default(true)
+  ehFolga              Boolean       @default(false)
+  criadoEm             DateTime      @default(now())
+  solicitacoes         Solicitacao[]
+}
+
+model Solicitacao {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation("SolicitacaoColaborador", fields: [userId], references: [id], onDelete: Cascade)
+  responsavelId   String?
+  responsavel     User?             @relation("SolicitacaoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  tipoId          String
+  tipo            TipoSolicitacao   @relation(fields: [tipoId], references: [id])
+  dataInicio      DateTime
+  dataFim         DateTime?
+  descricao       String?
+  anexoNome       String?
+  anexoCaminho    String?
+  anexoMimeType   String?
+  status          SolicitacaoStatus @default(SOLICITADA)
+  decididoPorId   String?
+  decididoPor     User?             @relation("SolicitacaoDecididoPor", fields: [decididoPorId], references: [id])
+  decididoEm      DateTime?
+  registradoPorId String
+  registradoPor   User              @relation("SolicitacaoRegistradoPor", fields: [registradoPorId], references: [id])
+  criadoEm        DateTime          @default(now())
+  atualizadoEm    DateTime          @updatedAt
+}
+
+model Dependente {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nome           String
+  parentesco     String
+  dataNascimento DateTime?
+  criadoEm       DateTime  @default(now())
+}
+
+model HistoricoProfissional {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cargo        String
+  departamento String?
+  dataInicio   DateTime
+  dataFim      DateTime?
+  observacao   String?
+  criadoEm     DateTime  @default(now())
+}
+
+model ChecklistAdmissaoItem {
+  id          String              @id @default(uuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  titulo      String
+  status      StatusChecklistItem @default(PENDENTE)
+  concluidoEm DateTime?
+  criadoEm    DateTime            @default(now())
+}
+
+model Vaga {
+  id             String      @id @default(uuid())
+  titulo         String
+  departamentoId String?
+  departamento   Group?      @relation(fields: [departamentoId], references: [id])
+  descricao      String?
+  aberta         Boolean     @default(true)
+  criadoEm       DateTime    @default(now())
+  candidatos     Candidato[]
+}
+
+model Candidato {
+  id                String         @id @default(uuid())
+  nome              String
+  email             String
+  telefone          String?
+  vagaId            String
+  vaga              Vaga           @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  etapa             EtapaCandidato @default(TRIAGEM)
+  curriculoNome     String?
+  curriculoCaminho  String?
+  curriculoMimeType String?
+  observacoes       String?
+  criadoEm          DateTime       @default(now())
+  atualizadoEm      DateTime       @updatedAt
+  entrevistas       Entrevista[]
+}
+
+model Entrevista {
+  id              String    @id @default(uuid())
+  candidatoId     String
+  candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  data            DateTime
+  entrevistadorId String?
+  entrevistador   User?     @relation("EntrevistaEntrevistador", fields: [entrevistadorId], references: [id])
+  notas           String?
+  criadoEm        DateTime  @default(now())
+}
+
+model DocumentoColaborador {
+  id              String                   @id @default(uuid())
+  userId          String
+  user            User                     @relation("DocumentoColaborador", fields: [userId], references: [id], onDelete: Cascade)
+  tipo            TipoDocumentoColaborador
+  nome            String
+  arquivoNome     String
+  arquivoCaminho  String
+  arquivoMimeType String
+  validade        DateTime?
+  criadoPorId     String
+  criadoPor       User                     @relation("DocumentoCriadoPor", fields: [criadoPorId], references: [id])
+  criadoEm        DateTime                 @default(now())
+}
+
+model Treinamento {
+  id            String                    @id @default(uuid())
+  titulo        String
+  descricao     String?
+  criadoEm      DateTime                  @default(now())
+  participantes TreinamentoParticipante[]
+}
+
+model TreinamentoParticipante {
+  id            String            @id @default(uuid())
+  treinamentoId String
+  treinamento   Treinamento       @relation(fields: [treinamentoId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status        StatusTreinamento @default(PENDENTE)
+  concluidoEm   DateTime?
+
+  @@unique([treinamentoId, userId])
+}
+
+/// Desafio de uso unico para o login e o vinculo com Google. O nonce viaja ate
+/// o Google e volta dentro do ID token; o token do navegador fica em cookie.
+model AuthChallenge {
+  id          String                  @id @default(uuid())
+  nonceHash   String                  @unique
+  browserHash String
+  finalidade  AuthChallengeFinalidade
+  userId      String?
+  expiraEm    DateTime
+  criadoEm    DateTime                @default(now())
+
+  @@index([expiraEm])
+}
+
+/// Autorizacao individual do colaborador para a agenda. Guarda o refresh token
+/// criptografado (AES-256-GCM), nunca em texto puro e nunca exposto pela API.
+model AgendaGoogleConexao {
+  id                        String                    @id @default(uuid())
+  userId                    String                    @unique
+  user                      User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleSub                 String
+  googleEmail               String
+  refreshTokenCriptografado String?
+  escopos                   String                    @default("")
+  status                    AgendaGoogleConexaoStatus @default(CONECTADA)
+  ultimoErro                String?
+  criadoEm                  DateTime                  @default(now())
+  atualizadoEm              DateTime                  @updatedAt
+
+  @@index([status])
+}
+
+/// Tentativa de consentimento OAuth da agenda: o state viaja ate o Google e
+/// volta na URL; o token do navegador fica em cookie. Uso unico e prazo curto.
+model AgendaGoogleOAuthTentativa {
+  id          String   @id @default(uuid())
+  stateHash   String   @unique
+  browserHash String
+  userId      String
+  expiraEm    DateTime
+  criadoEm    DateTime @default(now())
+
+  @@index([expiraEm])
+}
+
+/// Liga o plantao ao evento criado na agenda da pessoa. Sem relacao com Plantao
+/// de proposito: o vinculo sobrevive a exclusao do plantao para que o evento
+/// remoto ainda possa ser apagado.
+model PlantaoEventoAgenda {
+  id           String   @id @default(uuid())
+  plantaoId    String
+  userId       String
+  usuarioEmail String
+  /// Identidade Google que criou o evento. Nulo nos vinculos herdados da conta
+  /// de servico. Uma troca de conta nao pode direcionar a exclusao para outra.
+  googleSub    String?
+  calendarId   String
+  eventId      String
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@unique([plantaoId, userId])
+  @@index([plantaoId])
+  @@index([userId])
+}
+
+/// Outbox da sincronizacao com a agenda: a mutacao do plantao registra a
+/// pendencia e um worker reprocessa com espera crescente.
+model AgendaSyncPendente {
+  id                        String   @id @default(uuid())
+  plantaoId                 String   @unique
+  tentativas                Int      @default(0)
+  proximaTentativa          DateTime @default(now())
+  ultimoErro                String?
+  /// Pendencia parada a espera de reconexao desse usuario. O worker so volta a
+  /// processa-la quando a autorizacao for restabelecida.
+  aguardandoReconexaoUserId String?
+  criadoEm                  DateTime @default(now())
+
+  @@index([proximaTentativa])
+  @@index([aguardandoReconexaoUserId])
+}
+
+// ---------------------------------------------------------------------------
+// Modulo de agendamento de salas (API v1). Mantido autocontido: o plano preve
+// que ele possa migrar inteiro para outro projeto.
+// ---------------------------------------------------------------------------
+
+model Sala {
+  id               String                @id @default(uuid())
+  nome             String                @unique
+  localizacao      String?
+  capacidade       Int?
+  observacoes      String?
+  ativo            Boolean               @default(true)
+  criadoEm         DateTime              @default(now())
+  atualizadoEm     DateTime              @updatedAt
+  disponibilidades SalaDisponibilidade[]
+  reservas         Reserva[]
+}
+
+/// Janela recorrente em que a sala pode ser reservada, por dia da semana
+/// (0 = domingo). `duracaoMinutos` fatia a janela nos horarios oferecidos.
+model SalaDisponibilidade {
+  id             String   @id @default(uuid())
+  salaId         String
+  sala           Sala     @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  diaSemana      Int
+  horaInicio     String
+  horaFim        String
+  duracaoMinutos Int      @default(60)
+  criadoEm       DateTime @default(now())
+
+  @@index([salaId, diaSemana])
+}
+
+model Reserva {
+  id                      String        @id @default(uuid())
+  salaId                  String
+  sala                    Sala          @relation(fields: [salaId], references: [id])
+  solicitanteId           String
+  solicitante             User          @relation("ReservaSolicitante", fields: [solicitanteId], references: [id])
+  responsavelId           String?
+  responsavel             User?         @relation("ReservaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  destinatariosNotificacao ReservaDestinatarios @default(SOLICITANTE)
+  /// Dia da reserva em UTC, sempre a meia-noite: o horario vive em horaInicio/horaFim.
+  data                    DateTime
+  horaInicio              String
+  horaFim                 String
+  titulo                  String?
+  observacoes             String?
+  status                  ReservaStatus @default(CONFIRMADA)
+  registradoPorId         String
+  registradoPor           User          @relation("ReservaRegistradoPor", fields: [registradoPorId], references: [id])
+  canceladoEm             DateTime?
+  motivoCancelamento      String?
+  /// Se falso, nenhum aviso pessoal por Telegram sai para os destinatários (criação,
+  /// confirmação, cancelamento ou lembrete) — a notificação in-app continua.
+  notificarTelegram       Boolean       @default(true)
+  /// Marca que o lembrete de 30 minutos antes do início já saiu, para o worker não repetir.
+  lembrete30MinEnviado    Boolean       @default(false)
+  /// Marca que o lembrete de 30 minutos antes do fim já saiu, para o worker não repetir.
+  lembreteFim30MinEnviado Boolean       @default(false)
+  criadoEm                DateTime      @default(now())
+  atualizadoEm            DateTime      @updatedAt
+
+  @@index([salaId, data])
+  @@index([solicitanteId])
+  @@index([data, status])
+}
+
+/// Liga a reserva ao evento criado na agenda do solicitante. Sem relacao com
+/// Reserva de proposito: o vinculo sobrevive a exclusao para que o evento
+/// remoto ainda possa ser apagado.
+model ReservaEventoAgenda {
+  id           String   @id @default(uuid())
+  reservaId    String
+  userId       String
+  usuarioEmail String
+  /// Identidade Google que criou o evento. Uma troca de conta nao pode
+  /// direcionar a exclusao para outra agenda.
+  googleSub    String?
+  calendarId   String
+  eventId      String
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@unique([reservaId, userId])
+  @@index([reservaId])
+  @@index([userId])
+}
+
+/// Outbox da sincronizacao das reservas com a agenda, espelhando
+/// AgendaSyncPendente: a mutacao registra a pendencia e um worker reprocessa.
+model ReservaSyncPendente {
+  id                        String   @id @default(uuid())
+  reservaId                 String   @unique
+  tentativas                Int      @default(0)
+  proximaTentativa          DateTime @default(now())
+  ultimoErro                String?
+  /// Pendencia parada a espera de reconexao desse usuario.
+  aguardandoReconexaoUserId String?
+  criadoEm                  DateTime @default(now())
+
+  @@index([proximaTentativa])
+  @@index([aguardandoReconexaoUserId])
+}
+
+// ---------------------------------------------------------------------------
+// Modulo de patrimonio: notebooks, headsets, mouses e afins fornecidos aos
+// colaboradores. O item vive no catalogo (Equipamento) e cada passagem por um
+// colaborador e uma AlocacaoEquipamento -- o historico nunca e sobrescrito.
+// ---------------------------------------------------------------------------
+
+/// Categoria do que e fornecido: Notebook, Headset, Mouse, Fone...
+model TipoEquipamento {
+  id           String        @id @default(uuid())
+  nome         String        @unique
+  descricao    String?
+  /// Entregar item deste tipo exige termo assinado do colaborador.
+  exigeTermo   Boolean       @default(true)
+  ativo        Boolean       @default(true)
+  criadoEm     DateTime      @default(now())
+  atualizadoEm DateTime      @updatedAt
+  equipamentos Equipamento[]
+}
+
+/// Um item fisico, identificado pelo numero de patrimonio e/ou de serie. Ambos
+/// sao opcionais (mouse barato costuma nao ter), mas unicos quando informados.
+model Equipamento {
+  id             String                @id @default(uuid())
+  tipoId         String
+  tipo           TipoEquipamento       @relation(fields: [tipoId], references: [id])
+  numero         String?               @unique
+  numeroSerie    String?               @unique
+  marca          String?
+  modelo         String?
+  estado         EstadoEquipamento     @default(NOVO)
+  status         EquipamentoStatus     @default(ESTOQUE)
+  dataAquisicao  DateTime?
+  valorAquisicao Decimal?              @db.Decimal(12, 2)
+  observacoes    String?
+  /// Desativado sai das listas de estoque sem apagar o historico de quem o usou.
+  ativo          Boolean               @default(true)
+  criadoEm       DateTime              @default(now())
+  atualizadoEm   DateTime              @updatedAt
+  alocacoes      AlocacaoEquipamento[]
+
+  @@index([tipoId])
+  @@index([status])
+}
+
+/// Passagem de um item por um colaborador. O termo assinado e anexado aqui, e
+/// nao no equipamento: cada entrega tem o seu.
+model AlocacaoEquipamento {
+  id                String             @id @default(uuid())
+  equipamentoId     String
+  equipamento       Equipamento        @relation(fields: [equipamentoId], references: [id], onDelete: Cascade)
+  colaboradorId     String
+  colaborador       User               @relation("AlocacaoColaborador", fields: [colaboradorId], references: [id])
+  /// Dia da entrega em UTC, sempre a meia-noite.
+  dataInicio        DateTime
+  dataDevolucao     DateTime?
+  status            AlocacaoStatus     @default(PENDENTE)
+  estadoNaEntrega   EstadoEquipamento?
+  estadoNaDevolucao EstadoEquipamento?
+  observacoes       String?
+  motivoDevolucao   String?
+  /// Termo de responsabilidade assinado (PDF/DOC/DOCX).
+  termoNome         String?
+  termoCaminho      String?
+  termoMimeType     String?
+  termoEnviadoEm    DateTime?
+  registradoPorId   String
+  registradoPor     User               @relation("AlocacaoRegistradoPor", fields: [registradoPorId], references: [id])
+  criadoEm          DateTime           @default(now())
+  atualizadoEm      DateTime           @updatedAt
+
+  @@index([equipamentoId])
+  @@index([colaboradorId])
+  @@index([status])
+}

@@ -1,0 +1,69 @@
+{
+  "source": "https://app.rdstation.com.br/dashboard",
+  "capturedAt": "2026-08-21T20:23:31.438Z",
+  "viewport": { "w": 1240, "h": 671 },
+  "elementsScanned": 1466,
+  "palette": {
+    "textColors": [
+      { "rgb": "rgb(0, 34, 51)", "hex": "#002233", "count": 1152 },
+      { "rgb": "rgb(0, 119, 178)", "hex": "#0077B2", "count": 109 },
+      { "rgb": "rgb(255, 255, 255)", "hex": "#FFFFFF", "count": 104 },
+      { "rgb": "rgb(64, 84, 102)", "hex": "#405466", "count": 58 },
+      { "rgb": "rgb(0, 219, 255)", "hex": "#00DBFF", "count": 23 },
+      { "rgb": "rgb(127, 141, 153)", "hex": "#7F8D99", "count": 12 },
+      { "rgb": "rgb(140, 155, 163)", "hex": "#8C9BA3", "count": 4 },
+      { "rgb": "rgb(17, 167, 182)", "hex": "#11A7B6", "count": 1 }
+    ],
+    "backgroundColors": [
+      { "rgb": "rgb(255, 255, 255)", "hex": "#FFFFFF", "count": 83 },
+      { "rgb": "rgb(214, 219, 222)", "hex": "#D6DBDE", "count": 73 },
+      { "rgb": "rgb(227, 229, 232)", "hex": "#E3E5E8", "count": 31 },
+      { "rgb": "rgb(0, 34, 51)", "hex": "#002233", "count": 24 },
+      { "rgb": "rgb(237, 239, 241)", "hex": "#EDEFF1", "count": 13 },
+      { "rgb": "rgb(178, 244, 255)", "hex": "#B2F4FF", "count": 7 },
+      { "rgb": "rgb(236, 238, 239)", "hex": "#ECEEEF", "count": 5 },
+      { "rgb": "rgb(229, 232, 234)", "hex": "#E5E8EA", "count": 4 },
+      { "rgb": "rgb(219, 178, 252)", "hex": "#DBB2FC", "count": 3 },
+      { "rgb": "rgb(129, 240, 216)", "hex": "#81F0D8", "count": 1 },
+      { "rgb": "rgb(0, 61, 92)", "hex": "#003D5C", "count": 1 },
+      { "rgb": "rgb(136, 0, 247)", "hex": "#8800F7", "count": 1 },
+      { "rgb": "rgb(39, 241, 130)", "hex": "#27F182", "count": 1 }
+    ],
+    "borderColors": [
+      { "rgb": "rgb(214, 219, 222)", "hex": "#D6DBDE", "count": 60 },
+      { "rgb": "rgb(229, 232, 234)", "hex": "#E5E8EA", "count": 14 },
+      { "rgb": "rgb(178, 188, 193)", "hex": "#B2BCC1", "count": 2 }
+    ]
+  },
+  "typography": {
+    "families": [
+      { "value": "\"DM Sans\", \"Nunito Sans\", \"Open Sans\", Arial, sans-serif", "count": 1456 }
+    ],
+    "sizesPx": { "16": 1095, "14": 245, "12": 53, "20": 25, "13": 24, "11": 16, "36": 5, "28": 3 },
+    "weights": { "400": 858, "700": 357, "500": 219, "100": 24, "900": 8 },
+    "lineHeightsPx": { "24": 1072, "20": 236, "16": 53, "30": 25, "46": 5, "36": 3 }
+  },
+  "layout": {
+    "borderRadiusPx": { "12": 69, "16": 57, "8": 28, "4": 6, "50px-pill": 4, "50%": 1 },
+    "boxShadow": "rgba(0, 34, 51, 0.14) 0px 4px 12px 0px",
+    "gapsPx": { "8": 82, "16": 20, "12": 6, "4": 3 },
+    "paddingsPx": { "24": 81, "12x16": 32, "0x12": 22, "12x0": 20, "8x0": 18, "8x12": 12 }
+  },
+  "componentPatterns": {
+    "button_primary": { "bg": "#B2F4FF", "text": "#0077B2", "weight": 700, "radius": "12px", "padding": "0 16px" },
+    "card": { "bg": "#FFFFFF", "border": "1px solid #D6DBDE", "radius": "16px", "padding": "24px" },
+    "kpi_active": { "bg": "#00DBFF", "text": "#002233", "radius": "16px", "padding": "24px" },
+    "kpi_inactive": { "bg": "#E5E8EA", "radius": "16px", "padding": "24px" },
+    "heading_section": { "size": "28px", "weight": 900, "color": "#002233" },
+    "heading_card": { "size": "24px", "weight": 500, "color": "#364A65" }
+  },
+  "stylesheets": [
+    "https://d3ndvx6e67vt0s.cloudfront.net/assets/application-*.css",
+    "https://front-hub-service.rdops.systems/assets/*/tangram-design-tokens.*.chunk.css",
+    "https://front-hub-service.rdops.systems/assets/dashboard-analytics/2.0.576/static/css/main.*.css"
+  ],
+  "fonts": [
+    "DM Sans (Google Fonts)",
+    "Open Sans (self-hosted .woff2 no CloudFront)"
+  ]
+}
