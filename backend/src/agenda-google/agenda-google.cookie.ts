@@ -11,10 +11,11 @@ function prefixoPublico(): string {
 
 /** O cookie precisa alcançar o callback e nada além dele. */
 export function oauthCookieOptions() {
+  const secure = process.env.COOKIE_SECURE === 'true';
   return {
     path: `${prefixoPublico()}/agenda-google/oauth`,
     httpOnly: true,
-    secure: process.env.COOKIE_SECURE === 'true',
-    sameSite: 'lax' as const,
+    secure,
+    sameSite: secure ? ('none' as const) : ('lax' as const),
   };
 }

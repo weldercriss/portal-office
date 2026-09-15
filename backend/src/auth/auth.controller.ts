@@ -14,11 +14,14 @@ interface UsuarioAutenticado {
 }
 
 function refreshCookieOptions() {
+  const secure = process.env.COOKIE_SECURE === 'true';
   return {
     path: process.env.COOKIE_PATH ?? '/auth/refresh',
-    secure: process.env.COOKIE_SECURE === 'true',
+    secure,
     httpOnly: true,
-    sameSite: 'lax' as const,
+    // 'none' é obrigatório quando frontend e backend ficam em domínios
+    // diferentes (ex.: Vercel + Render); só é válido com secure=true.
+    sameSite: secure ? ('none' as const) : ('lax' as const),
   };
 }
 

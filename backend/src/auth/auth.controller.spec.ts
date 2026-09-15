@@ -27,7 +27,12 @@ describe('AuthController cookies', () => {
     if (secure === undefined) delete process.env.COOKIE_SECURE;
     else process.env.COOKIE_SECURE = secure;
     await controller.login({ email: 'admin@example.com', senha: 'password' }, response as unknown as Response);
-    const options = { path: expectedPath, secure: expectedSecure, httpOnly: true, sameSite: 'lax' };
+    const options = {
+      path: expectedPath,
+      secure: expectedSecure,
+      httpOnly: true,
+      sameSite: expectedSecure ? 'none' : 'lax',
+    };
     expect(response.cookie).toHaveBeenCalledWith('refresh_token', 'refresh', expect.objectContaining(options));
     controller.logout(response as unknown as Response);
     expect(response.clearCookie).toHaveBeenCalledWith('refresh_token', options);
