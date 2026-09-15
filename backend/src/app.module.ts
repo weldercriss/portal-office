@@ -6,6 +6,7 @@ import { AgendaGoogleModule } from './agenda-google/agenda-google.module';
 import { AgendamentoModule } from './agendamento/agendamento.module';
 import { AniversariosModule } from './aniversarios/aniversarios.module';
 import { AuthModule } from './auth/auth.module';
+import { ConvitesAgendaModule } from './convites-agenda/convites-agenda.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DependentesModule } from './dependentes/dependentes.module';
 import { DocumentosModule } from './documentos/documentos.module';
@@ -55,6 +56,7 @@ import { UsersModule } from './users/users.module';
     DocumentosModule,
     TreinamentosModule,
     RecrutamentoModule,
+    ConvitesAgendaModule,
   ],
   controllers: [AppController],
 })

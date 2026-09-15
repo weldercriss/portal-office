@@ -297,6 +297,28 @@ export class AgendaGoogleService {
     return { googleSub: conexao.googleSub, googleEmail: conexao.googleEmail };
   }
 
+  /**
+   * Versão em lote de `conexaoUtilizavel`, para telas que precisam saber de
+   * várias pessoas de uma vez quem está pronto para receber um evento (ex.:
+   * seletor de destinatários de um convite em massa).
+   */
+  async conexoesUtilizaveis(userIds: string[]): Promise<Map<string, { googleSub: string; googleEmail: string }>> {
+    const resultado = new Map<string, { googleSub: string; googleEmail: string }>();
+    if (userIds.length === 0) return resultado;
+
+    const usuarios = await this.prisma.user.findMany({
+      where: { id: { in: userIds }, ativo: true, agendaGoogleAtiva: true },
+      select: { id: true, agendaGoogleConexao: { select: { status: true, refreshTokenCriptografado: true, googleSub: true, googleEmail: true } } },
+    });
+    for (const usuario of usuarios) {
+      const conexao = usuario.agendaGoogleConexao;
+      if (conexao?.status === 'CONECTADA' && conexao.refreshTokenCriptografado) {
+        resultado.set(usuario.id, { googleSub: conexao.googleSub, googleEmail: conexao.googleEmail });
+      }
+    }
+    return resultado;
+  }
+
   /** Identidade Google ligada hoje ao usuário, mesmo que precise reconectar. */
   async googleSubAtual(userId: string): Promise<string | null> {
     const conexao = await this.oauth.conexaoDoUsuario(userId);

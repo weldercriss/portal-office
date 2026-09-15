@@ -13,10 +13,18 @@ export interface DataHoraEvento {
 export interface EventoAgenda {
   summary: string;
   description?: string;
+  location?: string;
   start: DataHoraEvento;
   end: DataHoraEvento;
   status?: string;
   extendedProperties?: { private?: Record<string, string> };
+}
+
+export interface EventoExistente {
+  id: string;
+  summary: string;
+  start: DataHoraEvento;
+  end: DataHoraEvento;
 }
 
 function status(erro: unknown): number | undefined {
@@ -134,6 +142,33 @@ export class GoogleCalendarClient {
     } catch (erro) {
       if (this.sumiu(erro)) return;
       await this.classificar(userId, erro);
+    }
+  }
+
+  /**
+   * Eventos existentes que colidem com o intervalo informado, para mostrar a
+   * divergência antes de agendar em cima de um compromisso já marcado.
+   */
+  async listarNoIntervalo(
+    userId: string,
+    calendarId: string,
+    timeMin: string,
+    timeMax: string,
+  ): Promise<EventoExistente[]> {
+    const cliente = await this.cliente(userId);
+    try {
+      const resposta = await cliente.request<{
+        items: { id: string; summary?: string; status?: string; start: DataHoraEvento; end: DataHoraEvento }[];
+      }>({
+        url: this.url(calendarId),
+        method: 'GET',
+        params: { timeMin, timeMax, singleEvents: true, orderBy: 'startTime' },
+      });
+      return (resposta.data.items ?? [])
+        .filter((evento) => evento.status !== 'cancelled')
+        .map((evento) => ({ id: evento.id, summary: evento.summary ?? '(sem título)', start: evento.start, end: evento.end }));
+    } catch (erro) {
+      return this.classificar(userId, erro);
     }
   }
 }

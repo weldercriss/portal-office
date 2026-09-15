@@ -18,6 +18,7 @@ const PlantoesAdminPage = lazy(() => import('../modules/plantoes/pages/PlantoesA
 //const MeusPlantoesPage = lazy(() => import('../modules/plantoes/pages/MeusPlantoesPage'));
 const AgendamentosPage = lazy(() => import('../modules/agendamento/pages/AgendamentosPage'));
 const SalasAdminPage = lazy(() => import('../modules/agendamento/pages/SalasAdminPage'));
+const ConvitesAgendaPage = lazy(() => import('../modules/convites-agenda/pages/ConvitesAgendaPage'));
 const SolicitacoesPage = lazy(() => import('../modules/solicitacoes/pages/SolicitacoesPage'));
 const SolicitacoesAdminPage = lazy(() => import('../modules/solicitacoes/pages/SolicitacoesAdminPage'));
 const TiposSolicitacaoAdminPage = lazy(() => import('../modules/tipos-solicitacao/pages/TiposSolicitacaoAdminPage'));
@@ -93,6 +94,14 @@ export function AppRoutes() {
           element={
             <ProtectedRoute requireRotina="solicitacoes">
               {user?.role === 'ADMIN' ? <SolicitacoesAdminPage /> : <SolicitacoesPage />}
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/convites-agenda"
+          element={
+            <ProtectedRoute requireRole="ADMIN">
+              <ConvitesAgendaPage />
             </ProtectedRoute>
           }
         />

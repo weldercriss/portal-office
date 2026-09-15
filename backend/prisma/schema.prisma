@@ -23,6 +23,14 @@ enum AgendaGoogleConexaoStatus {
   DESCONECTADA
 }
 
+/// Andamento do convite de agenda em massa para um destinatario especifico.
+enum ConviteAgendaStatus {
+  CRIADO
+  INDISPONIVEL
+  FALHA
+  CANCELADO
+}
+
 enum PlantaoStatus {
   RASCUNHO
   PUBLICADO
@@ -185,6 +193,8 @@ model User {
   reservasRegistradas      Reserva[]                 @relation("ReservaRegistradoPor")
   equipamentos             AlocacaoEquipamento[]     @relation("AlocacaoColaborador")
   alocacoesRegistradas     AlocacaoEquipamento[]     @relation("AlocacaoRegistradoPor")
+  convitesAgendaCriados    ConviteAgendaEvento[]     @relation("ConviteAgendaCriadoPor")
+  convitesAgendaRecebidos  ConviteAgendaDestinatario[]
 }
 
 model Group {
@@ -596,6 +606,49 @@ model AgendaSyncPendente {
 
   @@index([proximaTentativa])
   @@index([aguardandoReconexaoUserId])
+}
+
+// ---------------------------------------------------------------------------
+// Modulo de convites de agenda em massa: o admin monta um evento e o portal
+// cria uma copia na agenda de cada destinatario conectado, seguindo a mesma
+// autorizacao individual usada por plantoes e reservas. Nao ha um unico
+// evento com organizador/convidados (exigiria delegacao de dominio, que este
+// projeto nao usa) -- cada pessoa recebe seu proprio evento.
+// ---------------------------------------------------------------------------
+
+model ConviteAgendaEvento {
+  id            String                      @id @default(uuid())
+  titulo        String
+  descricao     String?
+  local         String?
+  inicio        DateTime
+  fim           DateTime
+  criadoPorId   String
+  criadoPor     User                        @relation("ConviteAgendaCriadoPor", fields: [criadoPorId], references: [id])
+  criadoEm      DateTime                    @default(now())
+  destinatarios ConviteAgendaDestinatario[]
+}
+
+model ConviteAgendaDestinatario {
+  id           String              @id @default(uuid())
+  conviteId    String
+  convite      ConviteAgendaEvento @relation(fields: [conviteId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                @relation(fields: [userId], references: [id])
+  status       ConviteAgendaStatus
+  usuarioEmail String?
+  /// Identidade Google que criou o evento. Uma troca de conta nao pode
+  /// direcionar a exclusao/cancelamento para outra agenda.
+  googleSub    String?
+  calendarId   String?
+  eventId      String?
+  erro         String?
+  criadoEm     DateTime            @default(now())
+  atualizadoEm DateTime            @updatedAt
+
+  @@unique([conviteId, userId])
+  @@index([conviteId])
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------
