@@ -14,3 +14,4 @@ id_ed25519*
 backups/
 .deployed-tag*
 .previous-tag
+workflow
