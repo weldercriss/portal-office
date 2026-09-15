@@ -1,9 +1,9 @@
-import { baixarAnexoSolicitacao } from '../api/solicitacoes.api';
+import { baixarAnexoCampoFormulario, baixarAnexoSolicitacao } from '../api/solicitacoes.api';
 
-export async function visualizarAnexoSolicitacao(id: string) {
+export async function visualizarAnexoSolicitacao(id: string, campoId?: string) {
   const novaAba = window.open('', '_blank', 'noopener,noreferrer');
   try {
-    const blob = await baixarAnexoSolicitacao(id);
+    const blob = campoId ? await baixarAnexoCampoFormulario(id, campoId) : await baixarAnexoSolicitacao(id);
     const url = URL.createObjectURL(blob);
     if (novaAba) {
       novaAba.location.href = url;

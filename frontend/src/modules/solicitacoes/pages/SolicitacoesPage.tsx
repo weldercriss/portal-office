@@ -14,7 +14,9 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { Select } from '../../../components/ui/Select';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { useTiposSolicitacao } from '../../tipos-solicitacao/hooks/useTiposSolicitacao';
+import { CamposFormularioForm } from '../components/CamposFormularioForm';
 import {
+  useAnexarCampoFormulario,
   useAnexarSolicitacao,
   useCancelarSolicitacao,
   useCreateSolicitacao,
@@ -44,6 +46,7 @@ export default function SolicitacoesPage() {
   const createMutation = useCreateSolicitacao();
   const cancelarMutation = useCancelarSolicitacao();
   const anexarMutation = useAnexarSolicitacao();
+  const anexarCampoMutation = useAnexarCampoFormulario();
 
   const [dialogAberto, setDialogAberto] = useState(false);
   const [tipoId, setTipoId] = useState('');
@@ -51,6 +54,8 @@ export default function SolicitacoesPage() {
   const [dataFim, setDataFim] = useState('');
   const [descricao, setDescricao] = useState('');
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [respostasFormulario, setRespostasFormulario] = useState<Record<string, string>>({});
+  const [arquivosFormulario, setArquivosFormulario] = useState<Record<string, File | null>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [erroLista, setErroLista] = useState<string | null>(null);
 
@@ -58,6 +63,7 @@ export default function SolicitacoesPage() {
     () => (tiposQuery.data ?? []).filter((t) => t.requerAprovacao),
     [tiposQuery.data],
   );
+  const tipoSelecionado = tiposDisponiveis.find((t) => t.id === tipoId);
 
   function abrirNovo() {
     setTipoId('');
@@ -65,6 +71,8 @@ export default function SolicitacoesPage() {
     setDataFim('');
     setDescricao('');
     setArquivo(null);
+    setRespostasFormulario({});
+    setArquivosFormulario({});
     setErro(null);
     setDialogAberto(true);
   }
@@ -78,9 +86,14 @@ export default function SolicitacoesPage() {
         dataInicio,
         dataFim: dataFim || undefined,
         descricao: descricao || undefined,
+        respostasFormulario: tipoSelecionado?.usaFormulario ? respostasFormulario : undefined,
       });
       if (arquivo) {
         await anexarMutation.mutateAsync({ id: criada.id, arquivo });
+      }
+      // Sequencial, nunca Promise.all: cada upload faz read-modify-write no mesmo Json.
+      for (const [campoId, campoArquivo] of Object.entries(arquivosFormulario)) {
+        if (campoArquivo) await anexarCampoMutation.mutateAsync({ id: criada.id, campoId, arquivo: campoArquivo });
       }
       setDialogAberto(false);
     } catch {
@@ -119,6 +132,7 @@ export default function SolicitacoesPage() {
   }
 
   const solicitacoes = solicitacoesQuery.data ?? [];
+  const enviando = createMutation.isPending || anexarMutation.isPending || anexarCampoMutation.isPending;
 
   return (
     <PageShell>
@@ -173,16 +187,18 @@ export default function SolicitacoesPage() {
                     )}
                   </Td>
                   <Td className="text-right">
-                    {item.status === 'SOLICITADA' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={cancelarMutation.isPending}
-                        onClick={() => handleCancelar(item)}
-                      >
-                        Cancelar
-                      </Button>
-                    )}
+                    <div className="inline-flex items-center justify-end gap-2">
+                      {item.status === 'SOLICITADA' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={cancelarMutation.isPending}
+                          onClick={() => handleCancelar(item)}
+                        >
+                          Cancelar
+                        </Button>
+                      )}
+                    </div>
                   </Td>
                 </Tr>
               ))}
@@ -218,19 +234,32 @@ export default function SolicitacoesPage() {
           <FormField label="Descrição (opcional)" htmlFor="solicitacao-descricao">
             <Input id="solicitacao-descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
           </FormField>
-          <FormField label="Anexo — imagem ou PDF (opcional)" htmlFor="solicitacao-anexo" error={erro ?? undefined}>
-            <Input
-              id="solicitacao-anexo"
-              type="file"
-              accept={ANEXO_ACCEPT}
-              onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+
+          {tipoSelecionado?.usaFormulario ? (
+            <CamposFormularioForm
+              campos={tipoSelecionado.camposFormulario ?? []}
+              valores={respostasFormulario}
+              onChangeValor={(campoId, valor) => setRespostasFormulario((atual) => ({ ...atual, [campoId]: valor }))}
+              arquivos={arquivosFormulario}
+              onChangeArquivo={(campoId, arquivo) => setArquivosFormulario((atual) => ({ ...atual, [campoId]: arquivo }))}
             />
-          </FormField>
+          ) : (
+            <FormField label="Anexo — imagem ou PDF (opcional)" htmlFor="solicitacao-anexo" error={erro ?? undefined}>
+              <Input
+                id="solicitacao-anexo"
+                type="file"
+                accept={ANEXO_ACCEPT}
+                onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+              />
+            </FormField>
+          )}
+          {tipoSelecionado?.usaFormulario && erro && <p className="text-xs text-[var(--color-danger)]">{erro}</p>}
+
           <FormActions>
             <Button type="button" variant="secondary" onClick={() => setDialogAberto(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createMutation.isPending || anexarMutation.isPending}>
+            <Button type="submit" disabled={enviando}>
               Enviar solicitação
             </Button>
           </FormActions>

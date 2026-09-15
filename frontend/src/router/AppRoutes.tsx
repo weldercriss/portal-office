@@ -4,6 +4,7 @@ import { AppShell } from '../app/layouts/AppShell';
 import { ConfiguracoesLayout } from '../app/layouts/ConfiguracoesLayout';
 import { ConfiguracoesPlantoesLayout } from '../app/layouts/ConfiguracoesPlantoesLayout';
 import { LoadingState } from '../components/ui/LoadingState';
+import FormularioPublicoPage from '../modules/solicitacoes/pages/FormularioPublicoPage';
 import LoginPage from '../pages/LoginPage';
 import { useAuth } from '../shared/auth/AuthContext';
 import type { AuthUser } from '../types/auth.types';
@@ -58,6 +59,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to={landingPath(user)} replace /> : <LoginPage />} />
+      <Route path="/formulario-publico/:token" element={<FormularioPublicoPage />} />
       <Route element={<AuthenticatedLayout />}>
         <Route
           path="/"

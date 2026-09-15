@@ -1,11 +1,30 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageShell } from '../../../components/system/PageShell';
+import { Button } from '../../../components/ui/Button';
 import { Card, CardTitle } from '../../../components/ui/Card';
 import { ErrorState } from '../../../components/ui/ErrorState';
+import { Input } from '../../../components/ui/Input';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { PageHeader } from '../../../components/ui/PageHeader';
+import { Select } from '../../../components/ui/Select';
+import { Table, Td, Th, Tr } from '../../../components/ui/Table';
+import { RespostasFormularioDialog } from '../../solicitacoes/components/RespostasFormularioDialog';
+import { useSolicitacoes } from '../../solicitacoes/hooks/useSolicitacoes';
+import type { Solicitacao, SolicitacaoStatus } from '../../solicitacoes/types/solicitacao.types';
+import { nomeExibidoSolicitacao } from '../../solicitacoes/utils/nomeSolicitante';
+import { useTiposSolicitacao } from '../../tipos-solicitacao/hooks/useTiposSolicitacao';
 import { useResumoAdmin } from '../hooks/useDashboard';
 import type { DashboardAgendamentoProximo } from '../types/dashboard.types';
+
+const LIMITE_LINHAS_FORMULARIOS = 20;
+
+const STATUS_LABEL: Record<SolicitacaoStatus, string> = {
+  SOLICITADA: 'Solicitada',
+  APROVADA: 'Aprovada',
+  REJEITADA: 'Rejeitada',
+  CANCELADA: 'Cancelada',
+};
 
 function KpiTile({ label, valor }: { label: string; valor: string }) {
   return (
@@ -62,6 +81,132 @@ function ListaResumo({
         </li>
       ))}
     </ul>
+  );
+}
+
+function FormulariosCard() {
+  const [tipoFiltro, setTipoFiltro] = useState('');
+  const [dataDe, setDataDe] = useState('');
+  const [dataAte, setDataAte] = useState('');
+  const [respostasAberta, setRespostasAberta] = useState<Solicitacao | null>(null);
+
+  const tiposQuery = useTiposSolicitacao();
+  const tiposFormulario = (tiposQuery.data ?? []).filter((tipo) => tipo.usaFormulario);
+
+  const solicitacoesQuery = useSolicitacoes({
+    tipoId: tipoFiltro || undefined,
+    from: dataDe || undefined,
+    to: dataAte || undefined,
+  });
+  const solicitacoesFormulario = (solicitacoesQuery.data ?? []).filter((item) => item.tipo.usaFormulario);
+
+  const contagemPorTipo = Object.values(
+    solicitacoesFormulario.reduce<Record<string, { tipoNome: string; total: number }>>((acc, item) => {
+      const atual = acc[item.tipoId] ?? { tipoNome: item.tipo.nome, total: 0 };
+      atual.total += 1;
+      acc[item.tipoId] = atual;
+      return acc;
+    }, {}),
+  );
+
+  const linhas = solicitacoesFormulario.slice(0, LIMITE_LINHAS_FORMULARIOS);
+
+  return (
+    <Card elevated className="mt-6 p-6">
+      <div className="flex items-center justify-between gap-2">
+        <CardTitle>Formulários preenchidos</CardTitle>
+        <Link to="/solicitacoes" className="text-xs font-bold text-[var(--color-primary)] hover:underline">
+          Ver todos
+        </Link>
+      </div>
+
+      {tiposFormulario.length === 0 ? (
+        <p className="mt-4 text-sm text-[var(--color-text-secondary)]">Nenhum tipo de solicitação usa formulário ainda.</p>
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Select
+              aria-label="Filtrar formulários por tipo"
+              value={tipoFiltro}
+              onChange={(e) => setTipoFiltro(e.target.value)}
+              className="max-w-[200px]"
+            >
+              <option value="">Todos os tipos</option>
+              {tiposFormulario.map((tipo) => (
+                <option key={tipo.id} value={tipo.id}>
+                  {tipo.nome}
+                </option>
+              ))}
+            </Select>
+            <Input
+              type="date"
+              aria-label="Data de início do filtro"
+              value={dataDe}
+              onChange={(e) => setDataDe(e.target.value)}
+              className="max-w-[160px]"
+            />
+            <Input
+              type="date"
+              aria-label="Data de fim do filtro"
+              value={dataAte}
+              onChange={(e) => setDataAte(e.target.value)}
+              className="max-w-[160px]"
+            />
+          </div>
+
+          <ul className="mt-4 flex flex-wrap gap-4">
+            {contagemPorTipo.map((item) => (
+              <li key={item.tipoNome} className="rounded-[var(--radius-field)] border border-[var(--color-border)] px-3 py-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">{item.tipoNome}</p>
+                <p className="font-bricolage text-lg font-bold text-[var(--color-text-primary)]">{item.total}</p>
+              </li>
+            ))}
+          </ul>
+
+          {linhas.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--color-text-secondary)]">Nenhuma resposta de formulário no filtro atual.</p>
+          ) : (
+            <Table className="mt-4">
+              <thead>
+                <tr>
+                  <Th>Colaborador</Th>
+                  <Th>Tipo</Th>
+                  <Th>Data</Th>
+                  <Th>Status</Th>
+                  <Th className="text-right">Ações</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {linhas.map((item) => (
+                  <Tr key={item.id}>
+                    <Td className="font-bold text-[var(--color-text-primary)]">{nomeExibidoSolicitacao(item)}</Td>
+                    <Td>{item.tipo.nome}</Td>
+                    <Td>{item.dataInicio.slice(0, 10)}</Td>
+                    <Td>{STATUS_LABEL[item.status]}</Td>
+                    <Td className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => setRespostasAberta(item)}>
+                        Ver respostas
+                      </Button>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+          {solicitacoesFormulario.length > LIMITE_LINHAS_FORMULARIOS && (
+            <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+              Mostrando {LIMITE_LINHAS_FORMULARIOS} de {solicitacoesFormulario.length} —{' '}
+              <Link to="/solicitacoes" className="font-bold text-[var(--color-primary)] hover:underline">
+                ver todos
+              </Link>
+              .
+            </p>
+          )}
+        </>
+      )}
+
+      <RespostasFormularioDialog solicitacao={respostasAberta} onOpenChange={(open) => !open && setRespostasAberta(null)} />
+    </Card>
   );
 }
 
@@ -128,6 +273,8 @@ export default function AdminDashboardPage() {
           </ul>
         )}
       </Card>
+
+      <FormulariosCard />
 
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Card elevated className="p-6">

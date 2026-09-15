@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SolicitacoesAdminPage from './SolicitacoesAdminPage';
 
@@ -21,6 +22,7 @@ vi.mock('../hooks/useSolicitacoes', () => ({
   useRejeitarSolicitacao: () => mutation,
   useDeleteSolicitacao: () => mutation,
   useAnexarSolicitacao: () => mutation,
+  useAnexarCampoFormulario: () => mutation,
 }));
 vi.mock('../../usuarios/hooks/useUsuarios', () => ({
   useUsuarios: () => ({ data: [
@@ -37,7 +39,7 @@ describe('Responsável da solicitação', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it.each(['', 'u2'])('creates a request with an optional responsible person (%s)', async (responsavelId) => {
-    render(<SolicitacoesAdminPage />);
+    render(<SolicitacoesAdminPage />, { wrapper: MemoryRouter });
     await userEvent.click(screen.getByRole('button', { name: 'Nova solicitação' }));
     const responsavel = screen.getByLabelText('Responsável (opcional)');
     expect(responsavel).not.toBeRequired();
@@ -55,7 +57,7 @@ describe('Responsável da solicitação', () => {
   });
 
   it('shows the saved person and allows clearing the assignment', async () => {
-    render(<SolicitacoesAdminPage />);
+    render(<SolicitacoesAdminPage />, { wrapper: MemoryRouter });
     expect(screen.getByRole('cell', { name: 'Bia' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Editar solicitação de Ana' }));
     expect(screen.getByLabelText('Responsável (opcional)')).toHaveValue('u2');

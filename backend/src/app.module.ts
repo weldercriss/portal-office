@@ -21,6 +21,7 @@ import { RecrutamentoModule } from './recrutamento/recrutamento.module';
 import { SolicitacoesModule } from './solicitacoes/solicitacoes.module';
 import { SubAreasModule } from './subareas/subareas.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { TemplatesFormularioModule } from './templates-formulario/templates-formulario.module';
 import { TiposPlantaoModule } from './tipos-plantao/tipos-plantao.module';
 import { TiposSolicitacaoModule } from './tipos-solicitacao/tipos-solicitacao.module';
 import { TreinamentosModule } from './treinamentos/treinamentos.module';
@@ -46,6 +47,7 @@ import { UsersModule } from './users/users.module';
     TurnosModule,
     TiposPlantaoModule,
     TiposSolicitacaoModule,
+    TemplatesFormularioModule,
     SolicitacoesModule,
     AniversariosModule,
     DashboardModule,

@@ -1,11 +1,24 @@
 import { Test } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { unlink } from 'fs/promises';
 import { SolicitacoesService } from './solicitacoes.service';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+jest.mock('fs/promises', () => ({ unlink: jest.fn().mockResolvedValue(undefined) }));
+
 const TIPO_COM_APROVACAO = { id: 't1', nome: 'Férias', ativo: true, requerAprovacao: true, contaComoAfastamento: true };
 const TIPO_SEM_APROVACAO = { id: 't2', nome: 'Advertência', ativo: true, requerAprovacao: false, contaComoAfastamento: false };
+const CAMPO_TEXTO_OBRIGATORIO = { id: 'c1', label: 'Motivo', tipo: 'TEXTO', obrigatorio: true };
+const TIPO_COM_FORMULARIO = {
+  id: 't3',
+  nome: 'Reembolso',
+  ativo: true,
+  requerAprovacao: true,
+  usaFormulario: true,
+  camposFormulario: [CAMPO_TEXTO_OBRIGATORIO],
+  permiteLinkPublico: false,
+};
 
 describe('SolicitacoesService', () => {
   let service: SolicitacoesService;
@@ -194,6 +207,149 @@ describe('SolicitacoesService', () => {
     it('throws when a solicitação is not found', async () => {
       prismaMock.solicitacao.findUnique.mockResolvedValue(null);
       await expect(service.findOne('missing')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('formulário dinâmico — create', () => {
+    it('rejects creating without a value for a required non-file field', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_COM_FORMULARIO);
+      await expect(
+        service.create({ tipoId: 't3', dataInicio: '2026-09-01', respostasFormulario: {} }, { id: 'u1', role: 'USER' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a response key that does not match any configured field', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_COM_FORMULARIO);
+      await expect(
+        service.create(
+          { tipoId: 't3', dataInicio: '2026-09-01', respostasFormulario: { c1: 'ok', desconhecido: 'x' } },
+          { id: 'u1', role: 'USER' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('does not require a value for a required ARQUIVO field on creation', async () => {
+      const tipoComArquivo = {
+        ...TIPO_COM_FORMULARIO,
+        camposFormulario: [{ id: 'c2', label: 'Comprovante', tipo: 'ARQUIVO', obrigatorio: true }],
+      };
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(tipoComArquivo);
+      prismaMock.solicitacao.create.mockResolvedValue({ id: '1', user: { nome: 'Ana' }, tipo: tipoComArquivo });
+      await expect(
+        service.create({ tipoId: 't3', dataInicio: '2026-09-01' }, { id: 'u1', role: 'USER' }),
+      ).resolves.toBeDefined();
+    });
+  });
+
+  describe('formulário dinâmico — update faz merge', () => {
+    it('merges new responses into the existing ones instead of replacing them', async () => {
+      prismaMock.solicitacao.findUnique.mockResolvedValue({
+        id: '1',
+        status: 'SOLICITADA',
+        tipo: TIPO_COM_FORMULARIO,
+        dataInicio: new Date('2026-09-01'),
+        respostasFormulario: { c1: 'valor antigo', c2: { nome: 'a.pdf', caminho: 'x.pdf', mimeType: 'application/pdf' } },
+      });
+      await service.update('1', { respostasFormulario: { c1: 'valor novo' } });
+      expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            respostasFormulario: {
+              c1: 'valor novo',
+              c2: { nome: 'a.pdf', caminho: 'x.pdf', mimeType: 'application/pdf' },
+            },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('remove — limpa arquivos de campos de formulário', () => {
+    it('unlinks every file answer before deleting the solicitação', async () => {
+      prismaMock.solicitacao.findUnique.mockResolvedValue({
+        id: '1',
+        anexoCaminho: null,
+        respostasFormulario: {
+          c1: 'texto, sem arquivo',
+          c2: { nome: 'a.pdf', caminho: 'a.pdf', mimeType: 'application/pdf' },
+        },
+      });
+      await service.remove('1');
+      expect(unlink).toHaveBeenCalledTimes(1);
+      expect(prismaMock.solicitacao.delete).toHaveBeenCalledWith({ where: { id: '1' } });
+    });
+  });
+
+  describe('formulário público (link fixo do tipo)', () => {
+    const TIPO_PUBLICO = {
+      id: 't3',
+      nome: 'Reembolso',
+      ativo: true,
+      permiteLinkPublico: true,
+      camposFormulario: [CAMPO_TEXTO_OBRIGATORIO],
+    };
+
+    it('returns the blank form when the token is valid', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PUBLICO);
+      const resultado = await service.obterFormularioPublico('token-valido');
+      expect(resultado).toEqual({ tipoNome: 'Reembolso', camposFormulario: TIPO_PUBLICO.camposFormulario });
+    });
+
+    it('rejects when the token does not exist', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(null);
+      await expect(service.obterFormularioPublico('inexistente')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects the same way when the type no longer allows the public link', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue({ ...TIPO_PUBLICO, permiteLinkPublico: false });
+      await expect(service.obterFormularioPublico('token-desativado')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('creates an anonymous solicitação (no colaborador attached) on submit', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PUBLICO);
+      prismaMock.solicitacao.create.mockResolvedValue({ id: 's1' });
+      const resultado = await service.criarSolicitacaoPublica('token-valido', { c1: 'ok' });
+      expect(resultado).toEqual({ id: 's1' });
+      const dadosGravados = prismaMock.solicitacao.create.mock.calls[0][0].data;
+      expect(dadosGravados).toMatchObject({ tipoId: 't3', status: 'SOLICITADA', respostasFormulario: { c1: 'ok' } });
+      expect(dadosGravados.userId).toBeUndefined();
+      expect(dadosGravados.registradoPorId).toBeUndefined();
+      expect(notificacoesMock.criarParaAdmins).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'SOLICITACAO_CRIADA' }));
+    });
+
+    it('rejects an anonymous submission missing a required field', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PUBLICO);
+      await expect(service.criarSolicitacaoPublica('token-valido', {})).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+    });
+
+    it('attaches a file to a just-created anonymous response of the same type', async () => {
+      const tipoComArquivo = { ...TIPO_PUBLICO, camposFormulario: [{ id: 'c2', label: 'Comprovante', tipo: 'ARQUIVO' }] };
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(tipoComArquivo);
+      prismaMock.solicitacao.findUnique.mockResolvedValue({
+        id: 's1', tipoId: 't3', userId: null, status: 'SOLICITADA', respostasFormulario: {},
+      });
+      await service.anexarCampoFormularioPublico('token-valido', 's1', 'c2', {
+        originalname: 'a.pdf', filename: 'a.pdf', mimetype: 'application/pdf',
+      } as any);
+      expect(prismaMock.solicitacao.update).toHaveBeenCalled();
+    });
+
+    it('rejects attaching a file to a solicitação from a different type', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PUBLICO);
+      prismaMock.solicitacao.findUnique.mockResolvedValue({ id: 's1', tipoId: 'outro-tipo', userId: null, status: 'SOLICITADA' });
+      await expect(
+        service.anexarCampoFormularioPublico('token-valido', 's1', 'c2', { path: 'x' } as any),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects attaching a file to a solicitação already claimed by a colaborador', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PUBLICO);
+      prismaMock.solicitacao.findUnique.mockResolvedValue({ id: 's1', tipoId: 't3', userId: 'u1', status: 'SOLICITADA' });
+      await expect(
+        service.anexarCampoFormularioPublico('token-valido', 's1', 'c2', { path: 'x' } as any),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

@@ -60,3 +60,13 @@ export function anexarSolicitacao(id: string, arquivo: File) {
 export async function baixarAnexoSolicitacao(id: string): Promise<Blob> {
   return httpClientBlob(`/solicitacoes/${id}/anexo`);
 }
+
+export function anexarCampoFormulario(id: string, campoId: string, arquivo: File) {
+  const formData = new FormData();
+  formData.set('anexo', arquivo);
+  return httpClient<Solicitacao>(`/solicitacoes/${id}/formulario-anexo/${campoId}`, { method: 'POST', body: formData });
+}
+
+export async function baixarAnexoCampoFormulario(id: string, campoId: string): Promise<Blob> {
+  return httpClientBlob(`/solicitacoes/${id}/formulario-anexo/${campoId}`);
+}

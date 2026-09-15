@@ -127,4 +127,29 @@ export class SolicitacoesController {
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(anexo.nome)}"`);
     res.sendFile(anexo.caminho);
   }
+
+  @Post(':id/formulario-anexo/:campoId')
+  @UseInterceptors(FileInterceptor('anexo', ANEXO_MULTER_OPTIONS))
+  anexarCampoFormulario(
+    @Param('id') id: string,
+    @Param('campoId') campoId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request,
+  ) {
+    if (!file) throw new BadRequestException('Envie um arquivo');
+    return this.solicitacoesService.anexarCampoFormulario(id, campoId, file, req.user as UsuarioAutenticado);
+  }
+
+  @Get(':id/formulario-anexo/:campoId')
+  async baixarAnexoCampoFormulario(
+    @Param('id') id: string,
+    @Param('campoId') campoId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const anexo = await this.solicitacoesService.obterAnexoCampoFormulario(id, campoId, req.user as UsuarioAutenticado);
+    res.setHeader('Content-Type', anexo.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(anexo.nome)}"`);
+    res.sendFile(anexo.caminho);
+  }
 }

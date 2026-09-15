@@ -10,8 +10,9 @@ export interface SolicitacaoUsuarioResumo {
 
 export interface Solicitacao {
   id: string;
-  userId: string;
-  user: SolicitacaoUsuarioResumo;
+  /** Nulo quando a resposta veio do link público sem login (sem colaborador identificado). */
+  userId: string | null;
+  user: SolicitacaoUsuarioResumo | null;
   responsavelId: string | null;
   responsavel: SolicitacaoUsuarioResumo | null;
   tipoId: string;
@@ -20,12 +21,13 @@ export interface Solicitacao {
   dataFim: string | null;
   descricao: string | null;
   anexoNome: string | null;
+  respostasFormulario: Record<string, string | string[] | { nome: string; caminho: string; mimeType: string }> | null;
   status: SolicitacaoStatus;
   decididoPorId: string | null;
   decididoPor: SolicitacaoUsuarioResumo | null;
   decididoEm: string | null;
-  registradoPorId: string;
-  registradoPor: SolicitacaoUsuarioResumo;
+  registradoPorId: string | null;
+  registradoPor: SolicitacaoUsuarioResumo | null;
   criadoEm: string;
   atualizadoEm: string;
 }
@@ -37,6 +39,7 @@ export interface CreateSolicitacaoInput {
   dataInicio: string;
   dataFim?: string;
   descricao?: string;
+  respostasFormulario?: Record<string, string | string[]>;
 }
 
 export type UpdateSolicitacaoInput = Partial<CreateSolicitacaoInput>;

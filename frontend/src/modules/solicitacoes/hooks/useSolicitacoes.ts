@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
+  anexarCampoFormulario,
   anexarSolicitacao,
   aprovarSolicitacao,
   cancelarSolicitacao,
@@ -83,6 +84,15 @@ export function useAnexarSolicitacao() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, arquivo }: { id: string; arquivo: File }) => anexarSolicitacao(id, arquivo),
+    onSuccess: () => invalidateSolicitacoes(queryClient),
+  });
+}
+
+export function useAnexarCampoFormulario() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, campoId, arquivo }: { id: string; campoId: string; arquivo: File }) =>
+      anexarCampoFormulario(id, campoId, arquivo),
     onSuccess: () => invalidateSolicitacoes(queryClient),
   });
 }

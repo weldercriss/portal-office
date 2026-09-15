@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { ListToolbar } from '../../../components/system/ListToolbar';
 import { SearchField } from '../../../components/system/SearchField';
 import { Button } from '../../../components/ui/Button';
@@ -12,13 +12,14 @@ import { Input } from '../../../components/ui/Input';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { StatusToggle } from '../../../components/ui/StatusToggle';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
+import { CamposFormularioEditor } from '../components/CamposFormularioEditor';
 import {
   useCreateTipoSolicitacao,
   useDeleteTipoSolicitacaoPermanently,
   useTiposSolicitacao,
   useUpdateTipoSolicitacao,
 } from '../hooks/useTiposSolicitacao';
-import type { TipoSolicitacao } from '../types/tipo-solicitacao.types';
+import type { CampoFormulario, TipoSolicitacao } from '../types/tipo-solicitacao.types';
 
 export default function TiposSolicitacaoAdminPage() {
   const tiposQuery = useTiposSolicitacao(true);
@@ -34,8 +35,14 @@ export default function TiposSolicitacaoAdminPage() {
   const [requerAprovacao, setRequerAprovacao] = useState(true);
   const [contaComoAfastamento, setContaComoAfastamento] = useState(true);
   const [ehFolga, setEhFolga] = useState(false);
+  const [usaFormulario, setUsaFormulario] = useState(false);
+  const [camposFormulario, setCamposFormulario] = useState<CampoFormulario[]>([]);
+  const [permiteLinkPublico, setPermiteLinkPublico] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [erroLista, setErroLista] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
+
+  const linkPublicoDisponivel = usaFormulario && requerAprovacao;
 
   const tiposFiltrados = useMemo(() => {
     const tipos = tiposQuery.data ?? [];
@@ -48,7 +55,11 @@ export default function TiposSolicitacaoAdminPage() {
     setRequerAprovacao(true);
     setContaComoAfastamento(true);
     setEhFolga(false);
+    setUsaFormulario(false);
+    setCamposFormulario([]);
+    setPermiteLinkPublico(false);
     setErro(null);
+    setCopiado(false);
     setDialogAberto(true);
   }
 
@@ -58,14 +69,32 @@ export default function TiposSolicitacaoAdminPage() {
     setRequerAprovacao(tipo.requerAprovacao);
     setContaComoAfastamento(tipo.contaComoAfastamento);
     setEhFolga(tipo.ehFolga);
+    setUsaFormulario(tipo.usaFormulario);
+    setCamposFormulario(tipo.camposFormulario ?? []);
+    setPermiteLinkPublico(tipo.permiteLinkPublico);
     setErro(null);
+    setCopiado(false);
     setDialogAberto(true);
+  }
+
+  async function handleCopiarLink() {
+    if (!emEdicao?.tokenLinkPublico) return;
+    await navigator.clipboard.writeText(`${window.location.origin}/formulario-publico/${emEdicao.tokenLinkPublico}`);
+    setCopiado(true);
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setErro(null);
-    const input = { nome, requerAprovacao, contaComoAfastamento, ehFolga };
+    const input = {
+      nome,
+      requerAprovacao,
+      contaComoAfastamento,
+      ehFolga,
+      usaFormulario,
+      camposFormulario: usaFormulario ? camposFormulario : [],
+      permiteLinkPublico: linkPublicoDisponivel && permiteLinkPublico,
+    };
     try {
       if (emEdicao) {
         await updateMutation.mutateAsync({ id: emEdicao.id, input });
@@ -170,7 +199,12 @@ export default function TiposSolicitacaoAdminPage() {
         </Card>
       )}
 
-      <Dialog open={dialogAberto} onOpenChange={setDialogAberto} title={emEdicao ? 'Editar tipo' : 'Novo tipo de solicitação'}>
+      <Dialog
+        open={dialogAberto}
+        onOpenChange={setDialogAberto}
+        title={emEdicao ? 'Editar tipo' : 'Novo tipo de solicitação'}
+        className="max-w-2xl"
+      >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <FormField label="Nome" htmlFor="nome-tipo-solicitacao" error={erro ?? undefined}>
             <Input id="nome-tipo-solicitacao" value={nome} onChange={(e) => setNome(e.target.value)} required />
@@ -191,6 +225,38 @@ export default function TiposSolicitacaoAdminPage() {
             <input type="checkbox" checked={ehFolga} onChange={(e) => setEhFolga(e.target.checked)} />
             É folga (aparece no widget de folgas do dashboard)
           </label>
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+            <input type="checkbox" checked={usaFormulario} onChange={(e) => setUsaFormulario(e.target.checked)} />
+            Coleta dados via formulário (permite configurar campos personalizados)
+          </label>
+
+          {usaFormulario && <CamposFormularioEditor value={camposFormulario} onChange={setCamposFormulario} />}
+
+          {linkPublicoDisponivel && (
+            <>
+              <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={permiteLinkPublico}
+                  onChange={(e) => setPermiteLinkPublico(e.target.checked)}
+                />
+                Aceitar respostas por link público, sem login (como um Google Forms)
+              </label>
+              {permiteLinkPublico && emEdicao?.tokenLinkPublico && (
+                <div className="flex items-center gap-2">
+                  <Input readOnly value={`${window.location.origin}/formulario-publico/${emEdicao.tokenLinkPublico}`} />
+                  <Button type="button" variant="secondary" size="sm" className="gap-1.5 shrink-0" onClick={handleCopiarLink}>
+                    <Copy aria-hidden="true" className="h-4 w-4" />
+                    {copiado ? 'Copiado!' : 'Copiar'}
+                  </Button>
+                </div>
+              )}
+              {permiteLinkPublico && !emEdicao?.tokenLinkPublico && (
+                <p className="text-xs text-[var(--color-text-muted)]">O link é gerado ao salvar.</p>
+              )}
+            </>
+          )}
+
           <FormActions>
             <Button type="button" variant="secondary" onClick={() => setDialogAberto(false)}>
               Cancelar

@@ -371,32 +371,52 @@ model TipoSolicitacao {
   requerAprovacao      Boolean       @default(true)
   contaComoAfastamento Boolean       @default(true)
   ehFolga              Boolean       @default(false)
+  usaFormulario        Boolean       @default(false)
+  /// CampoFormulario[]: { id, label, tipo: TEXTO|NUMERO|DATA|SELECAO|ARQUIVO, obrigatorio?, opcoes? }
+  camposFormulario     Json?
+  /// Formulário público: qualquer pessoa com o link (tokenLinkPublico) responde sem login, como um Google Forms. Só pode ser true quando requerAprovacao=true.
+  permiteLinkPublico   Boolean       @default(false)
+  /// Token opaco e fixo do link público do formulário (gerado uma vez, reaproveitado em toda resposta). Nulo enquanto permiteLinkPublico=false.
+  tokenLinkPublico     String?       @unique
   criadoEm             DateTime      @default(now())
   solicitacoes         Solicitacao[]
 }
 
 model Solicitacao {
-  id              String            @id @default(uuid())
-  userId          String
-  user            User              @relation("SolicitacaoColaborador", fields: [userId], references: [id], onDelete: Cascade)
-  responsavelId   String?
-  responsavel     User?             @relation("SolicitacaoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
-  tipoId          String
-  tipo            TipoSolicitacao   @relation(fields: [tipoId], references: [id])
-  dataInicio      DateTime
-  dataFim         DateTime?
-  descricao       String?
-  anexoNome       String?
-  anexoCaminho    String?
-  anexoMimeType   String?
+  id            String  @id @default(uuid())
+  /// Nulo quando a resposta veio do link público sem login (sem colaborador identificado).
+  userId        String?
+  user          User?   @relation("SolicitacaoColaborador", fields: [userId], references: [id], onDelete: Cascade)
+  responsavelId String?
+  responsavel   User?   @relation("SolicitacaoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  tipoId        String
+  tipo          TipoSolicitacao   @relation(fields: [tipoId], references: [id])
+  dataInicio    DateTime
+  dataFim       DateTime?
+  descricao     String?
+  anexoNome     String?
+  anexoCaminho  String?
+  anexoMimeType String?
+  /// { [campoId]: string | string[] | { nome, caminho, mimeType } } — chaves são os ids de TipoSolicitacao.camposFormulario.
+  respostasFormulario Json?
   status          SolicitacaoStatus @default(SOLICITADA)
   decididoPorId   String?
   decididoPor     User?             @relation("SolicitacaoDecididoPor", fields: [decididoPorId], references: [id])
   decididoEm      DateTime?
-  registradoPorId String
-  registradoPor   User              @relation("SolicitacaoRegistradoPor", fields: [registradoPorId], references: [id])
+  /// Nulo quando criada via link público (não há requisitante autenticado).
+  registradoPorId String?
+  registradoPor   User?             @relation("SolicitacaoRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
   criadoEm        DateTime          @default(now())
   atualizadoEm    DateTime          @updatedAt
+}
+
+/// Conjunto de campos de formulário salvo pra reaplicar em outros tipos de solicitação (substitui a lista atual ao aplicar).
+model TemplateFormulario {
+  id       String   @id @default(uuid())
+  nome     String
+  /// CampoFormulario[], mesmo formato de TipoSolicitacao.camposFormulario.
+  campos   Json
+  criadoEm DateTime @default(now())
 }
 
 model Dependente {
