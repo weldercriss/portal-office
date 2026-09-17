@@ -321,8 +321,8 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
             </p>
           )
         ) : (
-          <label className="flex w-fit cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" className="h-4 w-4" checked={comMeet} onChange={(e) => setComMeet(e.target.checked)} />
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+            <input type="checkbox" checked={comMeet} onChange={(e) => setComMeet(e.target.checked)} />
             É uma reunião? Criar link do Google Meet
           </label>
         )}
