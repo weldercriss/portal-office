@@ -24,6 +24,7 @@ enum AgendaGoogleConexaoStatus {
 }
 
 /// Andamento do convite de agenda em massa para um destinatario especifico.
+/// Usado só pelo modo legado (ConviteAgendaModo.COPIAS_INDIVIDUAIS).
 enum ConviteAgendaStatus {
   CRIADO
   INDISPONIVEL
@@ -31,9 +32,35 @@ enum ConviteAgendaStatus {
   CANCELADO
 }
 
+/// COPIAS_INDIVIDUAIS = uma cópia do evento por destinatário (modo legado,
+/// exige conexão individual). EVENTO_COM_CONVIDADOS = um único evento na
+/// agenda do organizador, com destinatários como attendees por e-mail.
+enum ConviteAgendaModo {
+  COPIAS_INDIVIDUAIS
+  EVENTO_COM_CONVIDADOS
+}
+
+/// Andamento do evento único (ConviteAgendaModo.EVENTO_COM_CONVIDADOS).
+enum ConviteAgendaEventoStatus {
+  PENDENTE
+  ENVIADO
+  FALHA
+  CANCELADO
+}
+
+/// RSVP do destinatário no evento único, espelhando o responseStatus do Google.
+enum ConviteAgendaResposta {
+  PENDENTE
+  ACEITO
+  RECUSADO
+  TALVEZ
+  DESCONHECIDO
+}
+
 enum PlantaoStatus {
   RASCUNHO
   PUBLICADO
+  CANCELADO
 }
 
 enum RegraRecorrenciaPlantao {
@@ -135,65 +162,66 @@ enum AlocacaoStatus {
 }
 
 model User {
-  id                       String                    @id @default(uuid())
+  id                       String                      @id @default(uuid())
   nome                     String
-  email                    String                    @unique
+  email                    String                      @unique
   senhaHash                String
-  acessoPlataforma         Boolean                   @default(false)
-  role                     Role                      @default(USER)
+  acessoPlataforma         Boolean                     @default(false)
+  role                     Role                        @default(USER)
   groupId                  String?
-  group                    Group?                    @relation(fields: [groupId], references: [id])
-  ativo                    Boolean                   @default(true)
-  criadoEm                 DateTime                  @default(now())
-  googleSub                String?                   @unique
+  group                    Group?                      @relation(fields: [groupId], references: [id])
+  ativo                    Boolean                     @default(true)
+  criadoEm                 DateTime                    @default(now())
+  googleSub                String?                     @unique
   googleLinkedAt           DateTime?
-  agendaGoogleAtiva        Boolean                   @default(true)
+  agendaGoogleAtiva        Boolean                     @default(true)
   dataNascimento           DateTime?
   dataAdmissao             DateTime?
   telefone                 String?
   telegramUsername         String?
   telegramChatId           String?
-  recebeAvisosRH           Boolean                   @default(false)
+  recebeAvisosRH           Boolean                     @default(false)
   subAreaId                String?
-  subArea                  SubArea?                  @relation(fields: [subAreaId], references: [id])
+  subArea                  SubArea?                    @relation(fields: [subAreaId], references: [id])
   senioridade              String?
   cargo                    String?
   gestorId                 String?
-  gestor                   User?                     @relation("UserGestor", fields: [gestorId], references: [id])
-  subordinados             User[]                    @relation("UserGestor")
-  salario                  Decimal?                  @db.Decimal(12, 2)
+  gestor                   User?                       @relation("UserGestor", fields: [gestorId], references: [id])
+  subordinados             User[]                      @relation("UserGestor")
+  salario                  Decimal?                    @db.Decimal(12, 2)
   beneficios               String?
-  statusColaborador        StatusColaborador         @default(ATIVO)
+  statusColaborador        StatusColaborador           @default(ATIVO)
   bancoNome                String?
   bancoAgencia             String?
   bancoConta               String?
   bancoTipoConta           String?
-  plantoesAtendidos        Plantao[]                 @relation("PlantaoAtendente")
-  plantoesCriados          Plantao[]                 @relation("PlantaoCriadoPor")
-  plantoesSerieCriadas     PlantaoSerie[]            @relation("PlantaoSerieCriadoPor")
-  trocasSolicitadas        TrocaPlantao[]            @relation("TrocaPlantaoSolicitante")
-  trocasRecebidas          TrocaPlantao[]            @relation("TrocaPlantaoDestinatario")
+  plantoesAtendidos        Plantao[]                   @relation("PlantaoAtendente")
+  plantoesCriados          Plantao[]                   @relation("PlantaoCriadoPor")
+  plantoesSerieCriadas     PlantaoSerie[]              @relation("PlantaoSerieCriadoPor")
+  tiposPlantaoCriados      TipoPlantao[]               @relation("TipoPlantaoCriadoPor")
+  trocasSolicitadas        TrocaPlantao[]              @relation("TrocaPlantaoSolicitante")
+  trocasRecebidas          TrocaPlantao[]              @relation("TrocaPlantaoDestinatario")
   notificacoes             Notificacao[]
-  solicitacoes             Solicitacao[]             @relation("SolicitacaoColaborador")
-  solicitacoesDecididas    Solicitacao[]             @relation("SolicitacaoDecididoPor")
-  solicitacoesRegistradas  Solicitacao[]             @relation("SolicitacaoRegistradoPor")
-  solicitacoesResponsavel  Solicitacao[]             @relation("SolicitacaoResponsavel")
-  departamentosResponsavel Group[]                   @relation("GroupResponsavel")
+  solicitacoes             Solicitacao[]               @relation("SolicitacaoColaborador")
+  solicitacoesDecididas    Solicitacao[]               @relation("SolicitacaoDecididoPor")
+  solicitacoesRegistradas  Solicitacao[]               @relation("SolicitacaoRegistradoPor")
+  solicitacoesResponsavel  Solicitacao[]               @relation("SolicitacaoResponsavel")
+  departamentosResponsavel Group[]                     @relation("GroupResponsavel")
   overridesRotina          UserRotinaOverride[]
   dependentes              Dependente[]
   historicoProfissional    HistoricoProfissional[]
   checklistAdmissao        ChecklistAdmissaoItem[]
-  entrevistasConduzidas    Entrevista[]              @relation("EntrevistaEntrevistador")
-  documentos               DocumentoColaborador[]    @relation("DocumentoColaborador")
-  documentosCriados        DocumentoColaborador[]    @relation("DocumentoCriadoPor")
+  entrevistasConduzidas    Entrevista[]                @relation("EntrevistaEntrevistador")
+  documentos               DocumentoColaborador[]      @relation("DocumentoColaborador")
+  documentosCriados        DocumentoColaborador[]      @relation("DocumentoCriadoPor")
   treinamentos             TreinamentoParticipante[]
   agendaGoogleConexao      AgendaGoogleConexao?
-  reservasSolicitadas      Reserva[]                 @relation("ReservaSolicitante")
-  reservasResponsavel      Reserva[]                 @relation("ReservaResponsavel")
-  reservasRegistradas      Reserva[]                 @relation("ReservaRegistradoPor")
-  equipamentos             AlocacaoEquipamento[]     @relation("AlocacaoColaborador")
-  alocacoesRegistradas     AlocacaoEquipamento[]     @relation("AlocacaoRegistradoPor")
-  convitesAgendaCriados    ConviteAgendaEvento[]     @relation("ConviteAgendaCriadoPor")
+  reservasSolicitadas      Reserva[]                   @relation("ReservaSolicitante")
+  reservasResponsavel      Reserva[]                   @relation("ReservaResponsavel")
+  reservasRegistradas      Reserva[]                   @relation("ReservaRegistradoPor")
+  equipamentos             AlocacaoEquipamento[]       @relation("AlocacaoColaborador")
+  alocacoesRegistradas     AlocacaoEquipamento[]       @relation("AlocacaoRegistradoPor")
+  convitesAgendaCriados    ConviteAgendaEvento[]       @relation("ConviteAgendaCriadoPor")
   convitesAgendaRecebidos  ConviteAgendaDestinatario[]
 }
 
@@ -252,15 +280,22 @@ model UserRotinaOverride {
 }
 
 model TipoPlantao {
-  id         String                  @id @default(uuid())
-  nome       String
-  horaInicio String
-  horaFim    String
-  regra      RegraRecorrenciaPlantao
-  ativo      Boolean                 @default(true)
-  criadoEm   DateTime                @default(now())
-  plantoes   Plantao[]
-  series     PlantaoSerie[]
+  id          String                  @id @default(uuid())
+  nome        String
+  horaInicio  String
+  horaFim     String
+  regra       RegraRecorrenciaPlantao
+  /// 0=Dom..6=Sáb. Só usado quando regra=SEMANAL — é a recorrência mantida
+  /// automaticamente pelo PlantoesRecorrenciaWorker enquanto o tipo está ativo.
+  diasSemana  Int[]                   @default([])
+  ativo       Boolean                 @default(true)
+  criadoEm    DateTime                @default(now())
+  /// Quem configurou por último — usado como autor das PlantaoSerie que o worker
+  /// abre sozinho. Nulo em tipos antigos até serem salvos de novo pelo admin.
+  criadoPorId String?
+  criadoPor   User?                   @relation("TipoPlantaoCriadoPor", fields: [criadoPorId], references: [id])
+  plantoes    Plantao[]
+  series      PlantaoSerie[]
 }
 
 model PlantaoSerie {
@@ -268,7 +303,8 @@ model PlantaoSerie {
   tipoPlantaoId String
   tipoPlantao   TipoPlantao @relation(fields: [tipoPlantaoId], references: [id])
   dataInicio    DateTime
-  dataFim       DateTime
+  /// null = sem data final, o worker continua gerando ocorrências sozinho.
+  dataFim       DateTime?
   diasSemana    Int[]
   criadoPorId   String
   criadoPor     User        @relation("PlantaoSerieCriadoPor", fields: [criadoPorId], references: [id])
@@ -383,31 +419,31 @@ model TipoSolicitacao {
 }
 
 model Solicitacao {
-  id            String  @id @default(uuid())
+  id                  String            @id @default(uuid())
   /// Nulo quando a resposta veio do link público sem login (sem colaborador identificado).
-  userId        String?
-  user          User?   @relation("SolicitacaoColaborador", fields: [userId], references: [id], onDelete: Cascade)
-  responsavelId String?
-  responsavel   User?   @relation("SolicitacaoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
-  tipoId        String
-  tipo          TipoSolicitacao   @relation(fields: [tipoId], references: [id])
-  dataInicio    DateTime
-  dataFim       DateTime?
-  descricao     String?
-  anexoNome     String?
-  anexoCaminho  String?
-  anexoMimeType String?
+  userId              String?
+  user                User?             @relation("SolicitacaoColaborador", fields: [userId], references: [id], onDelete: Cascade)
+  responsavelId       String?
+  responsavel         User?             @relation("SolicitacaoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  tipoId              String
+  tipo                TipoSolicitacao   @relation(fields: [tipoId], references: [id])
+  dataInicio          DateTime
+  dataFim             DateTime?
+  descricao           String?
+  anexoNome           String?
+  anexoCaminho        String?
+  anexoMimeType       String?
   /// { [campoId]: string | string[] | { nome, caminho, mimeType } } — chaves são os ids de TipoSolicitacao.camposFormulario.
   respostasFormulario Json?
-  status          SolicitacaoStatus @default(SOLICITADA)
-  decididoPorId   String?
-  decididoPor     User?             @relation("SolicitacaoDecididoPor", fields: [decididoPorId], references: [id])
-  decididoEm      DateTime?
+  status              SolicitacaoStatus @default(SOLICITADA)
+  decididoPorId       String?
+  decididoPor         User?             @relation("SolicitacaoDecididoPor", fields: [decididoPorId], references: [id])
+  decididoEm          DateTime?
   /// Nulo quando criada via link público (não há requisitante autenticado).
-  registradoPorId String?
-  registradoPor   User?             @relation("SolicitacaoRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
-  criadoEm        DateTime          @default(now())
-  atualizadoEm    DateTime          @updatedAt
+  registradoPorId     String?
+  registradoPor       User?             @relation("SolicitacaoRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+  criadoEm            DateTime          @default(now())
+  atualizadoEm        DateTime          @updatedAt
 }
 
 /// Conjunto de campos de formulário salvo pra reaplicar em outros tipos de solicitação (substitui a lista atual ao aplicar).
@@ -609,11 +645,13 @@ model AgendaSyncPendente {
 }
 
 // ---------------------------------------------------------------------------
-// Modulo de convites de agenda em massa: o admin monta um evento e o portal
-// cria uma copia na agenda de cada destinatario conectado, seguindo a mesma
-// autorizacao individual usada por plantoes e reservas. Nao ha um unico
-// evento com organizador/convidados (exigiria delegacao de dominio, que este
-// projeto nao usa) -- cada pessoa recebe seu proprio evento.
+// Modulo de convites de agenda em massa. Dois modos convivem (ConviteAgendaModo):
+// COPIAS_INDIVIDUAIS (legado) cria uma copia do evento na agenda de cada
+// destinatario conectado -- exige que cada um autorize o portal. Desde
+// 17/09/2026, toda criacao nova usa EVENTO_COM_CONVIDADOS: um unico evento na
+// agenda do organizador (o ADMIN autenticado), com os destinatarios como
+// attendees por e-mail e sendUpdates=all -- so o organizador precisa conectar
+// a Agenda Google. Ver docs/features/planning/convites-agenda-por-email.md.
 // ---------------------------------------------------------------------------
 
 model ConviteAgendaEvento {
@@ -627,26 +665,56 @@ model ConviteAgendaEvento {
   criadoPor     User                        @relation("ConviteAgendaCriadoPor", fields: [criadoPorId], references: [id])
   criadoEm      DateTime                    @default(now())
   destinatarios ConviteAgendaDestinatario[]
+
+  modo ConviteAgendaModo @default(COPIAS_INDIVIDUAIS)
+
+  // --- Campos do evento único (modo EVENTO_COM_CONVIDADOS) ------------------
+  statusEvento             ConviteAgendaEventoStatus?
+  /// Snapshot da identidade que organizou o evento no Google. Uma troca de
+  /// conta do mesmo usuário não pode redirecionar alterações/cancelamento
+  /// para a agenda de outra pessoa.
+  organizadorEmail         String?
+  organizadorGoogleSub     String?
+  calendarId               String?
+  eventId                  String?
+  ultimoErro               String?
+  enviadoEm                DateTime?
+  canceladoEm              DateTime?
+  respostasSincronizadasEm DateTime?
 }
 
 model ConviteAgendaDestinatario {
-  id           String              @id @default(uuid())
-  conviteId    String
-  convite      ConviteAgendaEvento @relation(fields: [conviteId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User                @relation(fields: [userId], references: [id])
-  status       ConviteAgendaStatus
+  id        String              @id @default(uuid())
+  conviteId String
+  convite   ConviteAgendaEvento @relation(fields: [conviteId], references: [id], onDelete: Cascade)
+
+  // --- Campos do modo legado (COPIAS_INDIVIDUAIS) ---------------------------
+  userId       String?
+  user         User?                @relation(fields: [userId], references: [id])
+  status       ConviteAgendaStatus?
   usuarioEmail String?
-  /// Identidade Google que criou o evento. Uma troca de conta nao pode
+  /// Identidade Google que criou a cópia do evento. Uma troca de conta nao pode
   /// direcionar a exclusao/cancelamento para outra agenda.
   googleSub    String?
   calendarId   String?
   eventId      String?
   erro         String?
-  criadoEm     DateTime            @default(now())
-  atualizadoEm DateTime            @updatedAt
+
+  // --- Campos do evento único (EVENTO_COM_CONVIDADOS) -----------------------
+  /// Sempre em lowercase. Para o modo legado, é o snapshot de `usuarioEmail`/
+  /// `User.email` feito no backfill da migration.
+  email        String
+  /// Nome do usuário do portal correspondente, quando existe; e-mail
+  /// digitado manualmente sem cadastro fica sem nome.
+  nome         String?
+  resposta     ConviteAgendaResposta @default(PENDENTE)
+  respondidoEm DateTime?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
   @@unique([conviteId, userId])
+  @@unique([conviteId, email])
   @@index([conviteId])
   @@index([userId])
 }
@@ -655,6 +723,15 @@ model ConviteAgendaDestinatario {
 // Modulo de agendamento de salas (API v1). Mantido autocontido: o plano preve
 // que ele possa migrar inteiro para outro projeto.
 // ---------------------------------------------------------------------------
+
+/// Configuracao global do modulo. A linha canonica usa id="global"; se ainda
+/// nao existir, o backend assume o padrao seguro (solicitacao desabilitada).
+model AgendamentoConfig {
+  id                            String   @id @default("global")
+  permiteSolicitacaoColaborador Boolean  @default(false)
+  criadoEm                      DateTime @default(now())
+  atualizadoEm                  DateTime @updatedAt
+}
 
 model Sala {
   id               String                @id @default(uuid())
@@ -685,34 +762,34 @@ model SalaDisponibilidade {
 }
 
 model Reserva {
-  id                      String        @id @default(uuid())
-  salaId                  String
-  sala                    Sala          @relation(fields: [salaId], references: [id])
-  solicitanteId           String
-  solicitante             User          @relation("ReservaSolicitante", fields: [solicitanteId], references: [id])
-  responsavelId           String?
-  responsavel             User?         @relation("ReservaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  id                       String               @id @default(uuid())
+  salaId                   String
+  sala                     Sala                 @relation(fields: [salaId], references: [id])
+  solicitanteId            String
+  solicitante              User                 @relation("ReservaSolicitante", fields: [solicitanteId], references: [id])
+  responsavelId            String?
+  responsavel              User?                @relation("ReservaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
   destinatariosNotificacao ReservaDestinatarios @default(SOLICITANTE)
   /// Dia da reserva em UTC, sempre a meia-noite: o horario vive em horaInicio/horaFim.
-  data                    DateTime
-  horaInicio              String
-  horaFim                 String
-  titulo                  String?
-  observacoes             String?
-  status                  ReservaStatus @default(CONFIRMADA)
-  registradoPorId         String
-  registradoPor           User          @relation("ReservaRegistradoPor", fields: [registradoPorId], references: [id])
-  canceladoEm             DateTime?
-  motivoCancelamento      String?
+  data                     DateTime
+  horaInicio               String
+  horaFim                  String
+  titulo                   String?
+  observacoes              String?
+  status                   ReservaStatus        @default(CONFIRMADA)
+  registradoPorId          String
+  registradoPor            User                 @relation("ReservaRegistradoPor", fields: [registradoPorId], references: [id])
+  canceladoEm              DateTime?
+  motivoCancelamento       String?
   /// Se falso, nenhum aviso pessoal por Telegram sai para os destinatários (criação,
   /// confirmação, cancelamento ou lembrete) — a notificação in-app continua.
-  notificarTelegram       Boolean       @default(true)
+  notificarTelegram        Boolean              @default(true)
   /// Marca que o lembrete de 30 minutos antes do início já saiu, para o worker não repetir.
-  lembrete30MinEnviado    Boolean       @default(false)
+  lembrete30MinEnviado     Boolean              @default(false)
   /// Marca que o lembrete de 30 minutos antes do fim já saiu, para o worker não repetir.
-  lembreteFim30MinEnviado Boolean       @default(false)
-  criadoEm                DateTime      @default(now())
-  atualizadoEm            DateTime      @updatedAt
+  lembreteFim30MinEnviado  Boolean              @default(false)
+  criadoEm                 DateTime             @default(now())
+  atualizadoEm             DateTime             @updatedAt
 
   @@index([salaId, data])
   @@index([solicitanteId])
