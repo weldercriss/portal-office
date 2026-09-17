@@ -19,6 +19,7 @@ interface UsuarioDaSessao {
   email: string;
   role: string;
   senhaHash: string;
+  avatarUrl: string | null;
 }
 
 export const DESAFIO_INVALIDO = 'Desafio de autenticação inválido ou expirado. Tente novamente.';
@@ -72,6 +73,7 @@ export class AuthService {
         role: user.role,
         rotinas,
         temSenha: user.senhaHash !== '',
+        avatarUrl: user.avatarUrl,
       },
     };
   }
@@ -172,7 +174,12 @@ export class AuthService {
     const vinculado = await this.prisma.user.findUnique({ where: { googleSub: perfil.sub } });
     if (vinculado) {
       if (!vinculado.ativo || !vinculado.acessoPlataforma) throw new UnauthorizedException('Credenciais inválidas');
-      return this.issueSession(vinculado);
+      // Foto do Google pode mudar entre logins; mantém a do portal em dia.
+      const atualizado =
+        perfil.foto && perfil.foto !== vinculado.avatarUrl
+          ? await this.prisma.user.update({ where: { id: vinculado.id }, data: { avatarUrl: perfil.foto } })
+          : vinculado;
+      return this.issueSession(atualizado);
     }
     return this.issueSession(await this.provisionarPorDominio(perfil));
   }
@@ -198,7 +205,7 @@ export class AuthService {
       }
       return this.prisma.user.update({
         where: { id: existente.id },
-        data: { googleSub: perfil.sub, googleLinkedAt: new Date() },
+        data: { googleSub: perfil.sub, googleLinkedAt: new Date(), avatarUrl: perfil.foto ?? existente.avatarUrl },
       });
     }
 
@@ -213,6 +220,7 @@ export class AuthService {
         role: 'USER',
         googleSub: perfil.sub,
         googleLinkedAt: new Date(),
+        avatarUrl: perfil.foto,
       },
     });
   }
@@ -240,7 +248,11 @@ export class AuthService {
 
     const atualizado = await this.prisma.user.update({
       where: { id: userId },
-      data: { googleSub: perfil.sub, googleLinkedAt: user.googleLinkedAt ?? new Date() },
+      data: {
+        googleSub: perfil.sub,
+        googleLinkedAt: user.googleLinkedAt ?? new Date(),
+        avatarUrl: perfil.foto ?? user.avatarUrl,
+      },
       select: { email: true, googleLinkedAt: true },
     });
     return { email: atualizado.email, googleLinkedAt: atualizado.googleLinkedAt };

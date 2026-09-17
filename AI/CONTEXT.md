@@ -237,7 +237,7 @@ Frontend em `frontend/src/modules/logs-aplicacao/`, rota `/logs` (item **Logs** 
 
 ### Google: login e Agenda são autorizações distintas
 
-O login Google é opcional, controlado por `GOOGLE_AUTH_ENABLED` e pelo Client ID no backend/frontend. Usa desafios temporários vinculados ao navegador e validação do ID token. É possível vincular uma conta a um usuário existente mediante confirmação de senha. O provisionamento automático depende de `GOOGLE_AUTO_PROVISION` e de domínios permitidos configurados; o código também permite contas provisionadas sem senha local e a definição posterior de uma senha.
+O login Google é opcional, controlado por `GOOGLE_AUTH_ENABLED` e pelo Client ID no backend/frontend. Usa desafios temporários vinculados ao navegador e validação do ID token. É possível vincular uma conta a um usuário existente mediante confirmação de senha. O provisionamento automático depende de `GOOGLE_AUTO_PROVISION` e de domínios permitidos configurados; o código também permite contas provisionadas sem senha local e a definição posterior de uma senha. O campo `picture` do ID token é gravado em `User.avatarUrl` e atualizado a cada login/vínculo (login por senha não altera o campo); `/users/me` expõe o valor e o header do frontend (`UserDropdown.tsx`) mostra a foto, caindo para a inicial do nome quando não existe.
 
 A Agenda Google usa consentimento OAuth individual em Meu perfil, com conexão, desconexão, preferência pessoal e estados `CONECTADA`, `RECONECTAR` e `DESCONECTADA`. Refresh tokens são armazenados de forma criptografada, com chave definida no ambiente. O login Google sozinho não concede autorização de calendário.
 

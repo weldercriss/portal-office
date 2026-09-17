@@ -5,6 +5,7 @@ export interface PerfilGoogle {
   sub: string;
   email: string;
   nome?: string;
+  foto?: string;
   /** Domínio do Workspace declarado pelo Google. Ausente em conta pessoal. */
   hd?: string;
   nonce: string;
@@ -83,6 +84,13 @@ export class GoogleAuthService {
       throw new UnauthorizedException('Domínio da conta Google não autorizado');
     }
 
-    return { sub: payload.sub, email: payload.email, nome: payload.name, hd: payload.hd, nonce: payload.nonce };
+    return {
+      sub: payload.sub,
+      email: payload.email,
+      nome: payload.name,
+      foto: payload.picture,
+      hd: payload.hd,
+      nonce: payload.nonce,
+    };
   }
 }

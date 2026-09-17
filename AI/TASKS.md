@@ -298,6 +298,29 @@ Plano e contrato de continuidade em
 - [x] Cobrir serviço, autorização e interface; os testes direcionados finais passaram (74 backend e 24 frontend) e o build do frontend passou. A suíte completa do frontend chegou a passar com 175 testes antes das mudanças concorrentes em `convites-agenda`; a repetição final ficou com 9 falhas somente no teste desse módulo externo à tarefa.
 - [ ] Aplicar nos ambientes de destino a migration `20260917044610_permite_solicitacao_sala_colaborador`. Ela foi gerada com `prisma migrate dev --create-only` e não foi aplicada ao banco local compartilhado porque há outras migrations sendo desenvolvidas por agentes em paralelo.
 
+## 15. Foto de perfil via Google — implementado em 17/09/2026, migration pendente
+
+Pedido: usuário quer que a foto da conta Google apareça no portal, já que o
+login é feito por ela.
+
+Implementado: `User.avatarUrl` (novo, opcional) recebe o campo `picture` do
+ID token do Google — extraído em `GoogleAuthService.verifyCredential`
+(`PerfilGoogle.foto`) e gravado por `AuthService` no primeiro login/vínculo
+e atualizado nos logins seguintes se a foto mudar (login por senha não
+altera o campo). `/users/me` expõe `avatarUrl`; o header do frontend
+(`UserDropdown.tsx`) mostra a foto no círculo da conta, caindo para a
+inicial do nome quando não existe. De caminho, foi removido um bloco de
+botão duplicado que estava colado por engano dentro do painel do dropdown
+(renderizava avatar/nome/chevron uma segunda vez, invisível por ser texto
+branco sobre fundo claro) e o botão "Sair" passou a usar
+`--color-danger`/`--color-danger-soft` (mesmo padrão de `Button.tsx`
+variante `danger`), a pedido do usuário.
+
+- [x] Backend: schema, `GoogleAuthService`, `AuthService` (login/provisionamento/vínculo), `SELECT_PUBLICO` em `users.service.ts`.
+- [x] Frontend: `AuthUser.avatarUrl`, `UserDropdown.tsx` (foto + fallback de inicial, remoção do botão duplicado, "Sair" em vermelho).
+- [x] Testes: `google-auth.service.spec.ts` atualizado para o campo `picture`/`foto`; suíte de `src/auth` e `src/users` (74 testes) e `tsc --noEmit` do frontend passando.
+- [ ] **Pendência operacional: rodar `prisma migrate deploy`** no ambiente com banco real para aplicar `20260917230000_add_user_avatar_url` (escrita à mão — sem Postgres acessível neste ambiente, mesma limitação já registrada nos itens 11/13/14). Sem isso, quem já tem conta vinculada só ganha a coluna/foto depois do deploy + próximo login.
+
 ## 16. Papel MASTER (administração de plataforma) — implementado em 17/09/2026
 
 Pedido: um papel acima de `ADMIN`, para administração da própria plataforma

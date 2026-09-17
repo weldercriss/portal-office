@@ -14,6 +14,7 @@ describe('GoogleAuthService', () => {
     email: 'ana@empresa.com',
     email_verified: true,
     name: 'Ana',
+    picture: 'https://lh3.googleusercontent.com/foto-ana',
     nonce: 'desafio',
   };
 
@@ -44,7 +45,13 @@ describe('GoogleAuthService', () => {
       idToken: 'credencial',
       audience: 'client-id.apps.googleusercontent.com',
     });
-    expect(perfil).toEqual({ sub: 'google-1', email: 'ana@empresa.com', nome: 'Ana', nonce: 'desafio' });
+    expect(perfil).toEqual({
+      sub: 'google-1',
+      email: 'ana@empresa.com',
+      nome: 'Ana',
+      foto: 'https://lh3.googleusercontent.com/foto-ana',
+      nonce: 'desafio',
+    });
   });
 
   it('recusa credencial rejeitada pela biblioteca (assinatura, emissor, destinatário ou expiração)', async () => {

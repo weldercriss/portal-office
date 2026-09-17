@@ -185,6 +185,7 @@ model User {
   criadoEm                 DateTime                    @default(now())
   googleSub                String?                     @unique
   googleLinkedAt           DateTime?
+  avatarUrl                String?
   agendaGoogleAtiva        Boolean                     @default(true)
   dataNascimento           DateTime?
   dataAdmissao             DateTime?

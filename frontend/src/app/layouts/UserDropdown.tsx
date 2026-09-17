@@ -90,9 +90,18 @@ export function UserDropdown({ navItems = [] }: { navItems?: NavItem[] }) {
         aria-expanded={isOpen}
         className="flex items-center gap-2 rounded-[var(--radius-button)] px-1.5 py-1 text-white transition-colors hover:bg-white/10"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs font-bold">
-          {inicial}
-        </span>
+        {user?.avatarUrl ? (
+          <img
+            src={user.avatarUrl}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="h-8 w-8 rounded-full object-cover"
+          />
+        ) : (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs font-bold">
+            {inicial}
+          </span>
+        )}
         <span className="hidden text-sm font-medium text-white/90 sm:inline">{user?.nome}</span>
         <ChevronDown aria-hidden="true" className={`h-4 w-4 text-white/70 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -123,24 +132,11 @@ export function UserDropdown({ navItems = [] }: { navItems?: NavItem[] }) {
             <KeyRound aria-hidden="true" className="h-5 w-5" />
             {tituloSenha}
           </button>
-                <button
-        type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
-        aria-label="Menu da conta"
-        aria-expanded={isOpen}
-        className="flex items-center gap-2 rounded-[var(--radius-button)] px-1.5 py-1 text-white transition-colors hover:bg-white/10"
-      >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs font-bold">
-          {inicial}
-        </span>
-        <span className="hidden text-sm font-medium text-white/90 sm:inline">{user?.nome}</span>
-        <ChevronDown
-          aria-hidden="true"
-          className={`h-4 w-4 text-white/70 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        />
-      </button>
-
-          <button type="button" onClick={handleLogout} className={MENU_ITEM_CLASSES}>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-medium text-[var(--color-danger)] transition-colors hover:bg-[var(--color-danger-soft)]"
+          >
             <LogOut aria-hidden="true" className="h-5 w-5" />
             Sair
           </button>

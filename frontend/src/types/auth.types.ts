@@ -8,6 +8,8 @@ export interface AuthUser {
   rotinas: string[];
   /** Falso para quem entrou pelo Google e ainda não definiu uma senha. */
   temSenha?: boolean;
+  /** Foto da conta Google, quando o login foi feito por ela. */
+  avatarUrl?: string | null;
 }
 
 const NIVEL_ROLE: Record<UserRole, number> = { USER: 0, ADMIN: 1, MASTER: 2 };

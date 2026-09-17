@@ -25,6 +25,7 @@ const SELECT_PUBLICO = {
   acessoPlataforma: true,
   criadoEm: true,
   googleLinkedAt: true,
+  avatarUrl: true,
   dataNascimento: true,
   dataAdmissao: true,
   telefone: true,
