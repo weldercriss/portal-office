@@ -67,7 +67,7 @@ export default function LoginPage() {
 
 
           <h1 className="font-bricolage text-[28px] font-bold leading-tight tracking-[-0.5px] text-[var(--color-text-primary)]">
-            Bem-vindo!
+            Bem-vindo ao Conexa!
           </h1>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Entre para acessar sua conta.</p>
 
@@ -154,7 +154,7 @@ export default function LoginPage() {
 
       {/* ── Painel de marca — o mesmo gradiente do shell ──────────────── */}
       <div className="hidden flex-1 items-center justify-center bg-gradient-rail p-12 lg:flex">
-        <img src={BRAND_LOGO_LIGHT} alt={BRAND_LOGO_ALT} className="h-16 w-auto" />
+        <img src={BRAND_LOGO_LIGHT} alt={BRAND_LOGO_ALT} className="h-[150px] w-auto" />
       </div>
     </div>
   );
