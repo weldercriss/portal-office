@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AlocacaoStatus, EquipamentoStatus, EstadoEquipamento, Prisma } from '@prisma/client';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEquipamentoDto, UpdateEquipamentoDto } from './dto/equipamento.dto';
 
@@ -69,7 +70,7 @@ function enumValido<T extends Record<string, string>>(mapa: T, valor: string | u
 export function redigirColaborador<
   T extends { colaboradorId: string; colaborador: { id: string; nome: string; email: string } },
 >(alocacao: T, usuarioAtual?: UsuarioAtual): T {
-  if (!usuarioAtual || usuarioAtual.role === 'ADMIN' || alocacao.colaboradorId === usuarioAtual.id) return alocacao;
+  if (!usuarioAtual || ehAdminOuSuperior(usuarioAtual.role) || alocacao.colaboradorId === usuarioAtual.id) return alocacao;
   return { ...alocacao, colaboradorId: '', colaborador: { ...alocacao.colaborador, id: '', nome: '', email: '' } };
 }
 

@@ -6,7 +6,7 @@ import { LoadingState } from '../components/ui/LoadingState';
 import FormularioPublicoPage from '../modules/solicitacoes/pages/FormularioPublicoPage';
 import LoginPage from '../pages/LoginPage';
 import { useAuth } from '../shared/auth/AuthContext';
-import type { AuthUser } from '../types/auth.types';
+import { satisfazRole, type AuthUser } from '../types/auth.types';
 import { ProtectedRoute } from './ProtectedRoute';
 
 const DashboardPage = lazy(() => import('../modules/dashboard/pages/DashboardPage'));
@@ -19,6 +19,8 @@ const PlantoesAdminPage = lazy(() => import('../modules/plantoes/pages/PlantoesA
 const AgendamentosPage = lazy(() => import('../modules/agendamento/pages/AgendamentosPage'));
 const SalasAdminPage = lazy(() => import('../modules/agendamento/pages/SalasAdminPage'));
 const ConvitesAgendaPage = lazy(() => import('../modules/convites-agenda/pages/ConvitesAgendaPage'));
+const LogsAplicacaoPage = lazy(() => import('../modules/logs-aplicacao/pages/LogsAplicacaoPage'));
+const MasterUsuariosPage = lazy(() => import('../modules/master/pages/MasterUsuariosPage'));
 const SolicitacoesPage = lazy(() => import('../modules/solicitacoes/pages/SolicitacoesPage'));
 const SolicitacoesAdminPage = lazy(() => import('../modules/solicitacoes/pages/SolicitacoesAdminPage'));
 const TiposSolicitacaoAdminPage = lazy(() => import('../modules/tipos-solicitacao/pages/TiposSolicitacaoAdminPage'));
@@ -32,7 +34,7 @@ const VagaDetalhePage = lazy(() => import('../modules/recrutamento/pages/VagaDet
 
 export function landingPath(user: AuthUser | null): string {
   if (!user) return '/login';
-  if (user.role === 'ADMIN' || user.rotinas.includes('dashboard')) return '/';
+  if (satisfazRole(user.role, 'ADMIN') || user.rotinas.includes('dashboard')) return '/';
   return '/perfil';
 }
 
@@ -75,7 +77,7 @@ export function AppRoutes() {
           path="/plantoes"
           element={
             <ProtectedRoute requireRotina="plantoes">
-              {user?.role === 'ADMIN' ? (
+              {user && satisfazRole(user.role, 'ADMIN') ? (
                 <PlantoesAdminPage />
               ): (
                 <Navigate to="/" replace />
@@ -95,7 +97,7 @@ export function AppRoutes() {
           path="/solicitacoes"
           element={
             <ProtectedRoute requireRotina="solicitacoes">
-              {user?.role === 'ADMIN' ? <SolicitacoesAdminPage /> : <SolicitacoesPage />}
+              {user && satisfazRole(user.role, 'ADMIN') ? <SolicitacoesAdminPage /> : <SolicitacoesPage />}
             </ProtectedRoute>
           }
         />
@@ -112,6 +114,22 @@ export function AppRoutes() {
           element={
             <ProtectedRoute requireRole="ADMIN">
               <ConvitesAgendaPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/logs"
+          element={
+            <ProtectedRoute requireRole="MASTER">
+              <LogsAplicacaoPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/master/usuarios"
+          element={
+            <ProtectedRoute requireRole="MASTER">
+              <MasterUsuariosPage />
             </ProtectedRoute>
           }
         />

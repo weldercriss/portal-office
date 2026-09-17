@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTreinamentoDto, UpdateParticipacaoDto } from './dto/treinamento.dto';
 
@@ -46,7 +47,7 @@ export class TreinamentosService {
     dto: UpdateParticipacaoDto,
     solicitante: { id: string; role: string },
   ) {
-    if (solicitante.role !== 'ADMIN' && solicitante.id !== userId) {
+    if (!ehAdminOuSuperior(solicitante.role) && solicitante.id !== userId) {
       throw new ForbiddenException('Você só pode atualizar sua própria participação');
     }
     const participacao = await this.prisma.treinamentoParticipante.findUnique({

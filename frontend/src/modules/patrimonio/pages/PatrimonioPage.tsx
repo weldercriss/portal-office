@@ -18,6 +18,7 @@ import { Select } from '../../../components/ui/Select';
 import { StatusToggle } from '../../../components/ui/StatusToggle';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { useAuth } from '../../../shared/auth/AuthContext';
+import { satisfazRole } from '../../../types/auth.types';
 import { VinculoDialog } from '../components/VinculoDialog';
 import { VinculoLoteDialog } from '../components/VinculoLoteDialog';
 import {
@@ -61,7 +62,7 @@ const CAMPO_VAZIO = '';
 export default function PatrimonioPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = satisfazRole(user?.role, 'ADMIN');
 
   const [busca, setBusca] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('');

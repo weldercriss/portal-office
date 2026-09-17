@@ -6,10 +6,11 @@ import { PermissoesService } from '../permissoes/permissoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { FinalidadeDesafio } from './dto/google.dto';
 import { GoogleAuthService, type PerfilGoogle } from './google-auth.service';
+import type { AppRole } from './roles.util';
 
 export interface JwtPayload {
   sub: string;
-  role: 'ADMIN' | 'USER';
+  role: AppRole;
 }
 
 interface UsuarioDaSessao {
@@ -51,7 +52,7 @@ export class AuthService {
 
   /** Emissão de sessão compartilhada pelo login por senha e pelo login com Google. */
   private async issueSession(user: UsuarioDaSessao) {
-    const payload: JwtPayload = { sub: user.id, role: user.role as 'ADMIN' | 'USER' };
+    const payload: JwtPayload = { sub: user.id, role: user.role as AppRole };
     const accessToken = await this.jwt.signAsync(payload, {
       secret: process.env.JWT_ACCESS_SECRET,
       expiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',

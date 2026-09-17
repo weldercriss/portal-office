@@ -6,8 +6,14 @@ import { AlocacoesService } from '../patrimonio/alocacoes.service';
 import { PermissoesService } from '../permissoes/permissoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CreateMasterUserDto } from './dto/create-master-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+
+interface UsuarioAutenticado {
+  id: string;
+  role: string;
+}
 
 const SELECT_PUBLICO = {
   id: true,
@@ -49,20 +55,42 @@ export class UsersService {
     private readonly alocacoesService: AlocacoesService,
   ) {}
 
-  findAll() {
-    return this.prisma.user.findMany({ select: SELECT_PUBLICO, orderBy: { nome: 'asc' } });
+  /** Master é administração de plataforma, não colaborador — some da lista para quem não é master. */
+  findAll(chamador: UsuarioAutenticado) {
+    return this.prisma.user.findMany({
+      where: chamador.role === 'MASTER' ? undefined : { role: { not: 'MASTER' } },
+      select: SELECT_PUBLICO,
+      orderBy: { nome: 'asc' },
+    });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, chamador: UsuarioAutenticado) {
     const user = await this.prisma.user.findUnique({ where: { id }, select: SELECT_PUBLICO });
-    if (!user) throw new NotFoundException('Usuário não encontrado');
+    // Mesmo erro do id inexistente: um master não deve nem confirmar que o id existe.
+    if (!user || (user.role === 'MASTER' && chamador.role !== 'MASTER')) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
     const rotinas = await this.permissoesService.resolveRotinas(id);
     return { ...user, rotinas };
   }
 
-  async findMe(id: string) {
+  findMasters() {
+    return this.prisma.user.findMany({ where: { role: 'MASTER' }, select: SELECT_PUBLICO, orderBy: { nome: 'asc' } });
+  }
+
+  async createMaster(dto: CreateMasterUserDto) {
+    const existente = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existente) throw new ConflictException('E-mail já cadastrado');
+    const senhaHash = await bcrypt.hash(dto.senha, 10);
+    return this.prisma.user.create({
+      data: { nome: dto.nome, email: dto.email, senhaHash, role: 'MASTER', ativo: true, acessoPlataforma: true },
+      select: SELECT_PUBLICO,
+    });
+  }
+
+  async findMe(id: string, chamador: UsuarioAutenticado) {
     const [usuario, credencial] = await Promise.all([
-      this.findOne(id),
+      this.findOne(id, chamador),
       this.prisma.user.findUnique({ where: { id }, select: { senhaHash: true } }),
     ]);
     // Quem entrou pelo Google ainda pode não ter senha definida.
@@ -123,9 +151,10 @@ export class UsersService {
     return { ...usuario, senhaGerada };
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto, chamador: UsuarioAutenticado) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('Usuário não encontrado');
+    if (user.role === 'MASTER' && chamador.role !== 'MASTER') throw new NotFoundException('Usuário não encontrado');
 
     // Desligar devolve ao estoque tudo que estava com a pessoa. Só na virada:
     // salvar de novo alguém que já estava desligado não mexe no histórico.
@@ -165,15 +194,17 @@ export class UsersService {
     return { ...atualizado, senhaGerada };
   }
 
-  async remove(id: string) {
+  async remove(id: string, chamador: UsuarioAutenticado) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('Usuário não encontrado');
+    if (user.role === 'MASTER' && chamador.role !== 'MASTER') throw new NotFoundException('Usuário não encontrado');
     return this.prisma.user.update({ where: { id }, data: { ativo: false }, select: SELECT_PUBLICO });
   }
 
-  async deletePermanently(id: string) {
+  async deletePermanently(id: string, chamador: UsuarioAutenticado) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('Usuário não encontrado');
+    if (user.role === 'MASTER' && chamador.role !== 'MASTER') throw new NotFoundException('Usuário não encontrado');
 
     try {
       await this.prisma.user.delete({ where: { id } });

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { RegraRecorrenciaPlantao } from '@prisma/client';
 import { AgendaGoogleService } from '../agenda-google/agenda-google.service';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SolicitacoesService } from '../solicitacoes/solicitacoes.service';
@@ -246,7 +247,7 @@ export class PlantoesService {
 
   async findTrocas(userId: string, role: string) {
     return this.prisma.trocaPlantao.findMany({
-      where: role === 'ADMIN' ? undefined : { OR: [{ solicitanteId: userId }, { destinatarioId: userId }] },
+      where: ehAdminOuSuperior(role) ? undefined : { OR: [{ solicitanteId: userId }, { destinatarioId: userId }] },
       orderBy: { criadoEm: 'desc' },
       include: TROCA_INCLUDE,
     });

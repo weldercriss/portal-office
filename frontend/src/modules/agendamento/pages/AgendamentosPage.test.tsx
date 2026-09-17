@@ -8,6 +8,7 @@ const cancelarMutation = { mutate: vi.fn(), isPending: false };
 const cancelarMinhaMutation = { mutate: vi.fn(), isPending: false };
 const confirmarMutation = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
 const createMinhaMutation = { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false };
+const deleteMutation = { mutate: vi.fn(), isPending: false };
 
 const sala: Sala = {
   id: 'sala1',
@@ -50,7 +51,7 @@ const horarios: HorarioDisponivel[] = [
 ];
 
 let salas: Sala[] = [sala];
-let papel: 'ADMIN' | 'USER' = 'ADMIN';
+let papel: 'ADMIN' | 'USER' | 'MASTER' = 'ADMIN';
 let reservas: Reserva[] = [reserva];
 let permiteSolicitacaoColaborador = false;
 
@@ -69,6 +70,7 @@ vi.mock('../hooks/useAgendamento', () => ({
   useCreateMinhaReserva: () => createMinhaMutation,
   useCreateReserva: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateReserva: () => confirmarMutation,
+  useDeleteReserva: () => deleteMutation,
   useCreateSala: () => ({ mutateAsync: vi.fn().mockResolvedValue({}), isPending: false }),
   useUpdateSala: () => ({ mutateAsync: vi.fn().mockResolvedValue({}), isPending: false }),
 }));
@@ -157,7 +159,7 @@ describe('AgendamentosPage', () => {
     expect(screen.getByRole('button', { name: 'Cancelar reserva de Ana Lima' })).toBeInTheDocument();
   });
 
-  it('numa reserva confirmada já encerrada, não mostra nenhuma ação', () => {
+  it('numa reserva confirmada já encerrada, não mostra nenhuma ação para admin comum', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-09T14:30:00.000Z')); // 11:30 em America/Sao_Paulo, depois do horaFim (11:00)
     reservas = [{ ...reserva, data: '2026-09-09T00:00:00.000Z' }];
@@ -167,6 +169,24 @@ describe('AgendamentosPage', () => {
     expect(screen.getByText('Encerrada')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Editar reserva de Ana Lima' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancelar reserva de Ana Lima' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Excluir reserva encerrada de Ana Lima' })).not.toBeInTheDocument();
+  });
+
+  it('master pode gerenciar reservas como admin (hierarquia) e ainda exclui uma já encerrada', async () => {
+    papel = 'MASTER';
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-09T14:30:00.000Z'));
+    reservas = [{ ...reserva, data: '2026-09-09T00:00:00.000Z' }];
+
+    render(<AgendamentosPage />);
+    expect(screen.getByText('Encerrada')).toBeInTheDocument();
+
+    // userEvent trava com fake timers ativos — a interação em si não depende do relógio congelado.
+    vi.useRealTimers();
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir reserva encerrada de Ana Lima' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir permanentemente' }));
+
+    expect(deleteMutation.mutate).toHaveBeenCalledWith('r1', expect.anything());
   });
 
   it('numa reserva solicitada, confirmar/editar continuam mesmo com o horário já passado', () => {

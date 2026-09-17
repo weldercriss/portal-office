@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { DependentesService } from './dependentes.service';
 import { CreateDependenteDto, UpdateDependenteDto } from './dto/dependente.dto';
 
@@ -11,7 +12,7 @@ interface UsuarioAutenticado {
 
 function garantirAcesso(req: Request, userId: string) {
   const usuario = req.user as UsuarioAutenticado;
-  if (usuario.role !== 'ADMIN' && usuario.id !== userId) {
+  if (!ehAdminOuSuperior(usuario.role) && usuario.id !== userId) {
     throw new ForbiddenException('Você não tem acesso aos dados deste colaborador');
   }
 }

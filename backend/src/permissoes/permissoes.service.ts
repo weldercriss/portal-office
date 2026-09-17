@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -13,7 +14,7 @@ export class PermissoesService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return [];
 
-    if (user.role === 'ADMIN') {
+    if (ehAdminOuSuperior(user.role)) {
       const todas = await this.prisma.rotina.findMany({ where: { ativo: true }, select: { chave: true } });
       return todas.map((r) => r.chave);
     }

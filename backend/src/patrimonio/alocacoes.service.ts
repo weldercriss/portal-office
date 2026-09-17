@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { AlocacaoStatus, EquipamentoStatus, Prisma, StatusColaborador } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAlocacaoDto, DevolverAlocacaoDto, UpdateAlocacaoDto } from './dto/alocacao.dto';
@@ -328,7 +329,7 @@ export class AlocacoesService {
 
   async obterTermo(id: string, usuario: { id: string; role: string }) {
     const alocacao = await this.findOne(id);
-    if (usuario.role !== 'ADMIN' && usuario.id !== alocacao.colaboradorId) {
+    if (!ehAdminOuSuperior(usuario.role) && usuario.id !== alocacao.colaboradorId) {
       throw new NotFoundException('Registro de equipamento não encontrado');
     }
     if (!alocacao.termoCaminho) throw new NotFoundException('Este registro não tem termo anexado');

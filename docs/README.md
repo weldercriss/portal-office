@@ -32,7 +32,8 @@ anteriores foi removida após a consolidação das pendências.
 
 - [logs-aplicacao.md](features-planning/logs-aplicacao.md) — plano do módulo
   administrativo que registra requisições HTTP, detalha erros e reinicia o
-  histórico em ciclos de 100 entradas.
+  histórico em ciclos de 100 entradas. Implementado em 17/09/2026 — ver
+  [reference/logs-aplicacao.md](reference/logs-aplicacao.md).
 - [solicitacao-reserva-sala-colaborador.md](features/planning/solicitacao-reserva-sala-colaborador.md) —
   plano, contrato e pontos de continuidade da solicitação pessoal de salas,
   implementada com configuração global e aprovação administrativa.
@@ -44,3 +45,4 @@ anteriores foi removida após a consolidação das pendências.
 - [agenda-google.md](reference/agenda-google.md), [agenda-google-oauth-individual.md](reference/agenda-google-oauth-individual.md),
   [login-google.md](reference/login-google.md), [custos-google.md](reference/custos-google.md) — integração Google.
 - [agendamento-salas.md](reference/agendamento-salas.md) — como o módulo de salas funciona no dia a dia.
+- [logs-aplicacao.md](reference/logs-aplicacao.md) — histórico técnico das requisições HTTP, captura, sanitização e rotação em ciclos de 100.

@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { join } from 'path';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { uploadDir } from '../common/upload.storage';
 import { CreateDocumentoDto } from './dto/create-documento.dto';
@@ -42,7 +43,7 @@ export class DocumentosService {
   async obterArquivo(id: string, usuario: UsuarioAutenticado) {
     const documento = await this.prisma.documentoColaborador.findUnique({ where: { id } });
     if (!documento) throw new NotFoundException('Documento não encontrado');
-    if (usuario.role !== 'ADMIN' && usuario.id !== documento.userId) {
+    if (!ehAdminOuSuperior(usuario.role) && usuario.id !== documento.userId) {
       throw new ForbiddenException('Você não tem acesso a este documento');
     }
     return {

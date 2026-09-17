@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarX2, Check, Pencil } from 'lucide-react';
+import { CalendarX2, Check, Pencil, Trash2 } from 'lucide-react';
 import { PageShell } from '../../../components/system/PageShell';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -15,6 +15,7 @@ import { Select } from '../../../components/ui/Select';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { useAuth } from '../../../shared/auth/AuthContext';
+import { satisfazRole } from '../../../types/auth.types';
 import { GradeHorarios } from '../components/GradeHorarios';
 import { ReservaDialog } from '../components/ReservaDialog';
 import { SalaDialog } from '../components/SalaDialog';
@@ -23,6 +24,7 @@ import {
   useAgendamentoConfig,
   useCancelarMinhaReserva,
   useCancelarReserva,
+  useDeleteReserva,
   useHorarios,
   useReservas,
   useSalas,
@@ -55,7 +57,8 @@ export default function AgendamentosPage() {
   useAgendamentoSocket();
 
   const { user } = useAuth();
-  const podeGerenciar = user?.role === 'ADMIN';
+  const podeGerenciar = satisfazRole(user?.role, 'ADMIN');
+  const isMaster = user?.role === 'MASTER';
 
   const [data, setData] = useState(hojeIso);
   const [salaId, setSalaId] = useState('');
@@ -64,6 +67,7 @@ export default function AgendamentosPage() {
   const [solicitacaoDialogAberto, setSolicitacaoDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Reserva | null>(null);
   const [paraCancelar, setParaCancelar] = useState<Reserva | null>(null);
+  const [paraExcluir, setParaExcluir] = useState<Reserva | null>(null);
   const [motivo, setMotivo] = useState('');
   const [erroLista, setErroLista] = useState<string | null>(null);
   const [salaDialogAberto, setSalaDialogAberto] = useState(false);
@@ -80,6 +84,7 @@ export default function AgendamentosPage() {
   const cancelarMutation = useCancelarReserva();
   const cancelarMinhaMutation = useCancelarMinhaReserva();
   const confirmarMutation = useUpdateReserva();
+  const deleteMutation = useDeleteReserva();
 
   const salas = salasQuery.data ?? [];
   // A grade só faz sentido para uma sala de cada vez.
@@ -152,6 +157,19 @@ export default function AgendamentosPage() {
         onError,
       });
     }
+  }
+
+  /** Só master: exclui de vez uma reserva já encerrada — a API já nunca teve essa restrição, só a tela escondia a ação. */
+  function confirmarExclusao() {
+    if (!paraExcluir) return;
+    setErroLista(null);
+    deleteMutation.mutate(paraExcluir.id, {
+      onSuccess: () => setParaExcluir(null),
+      onError: (error) => {
+        setParaExcluir(null);
+        setErroLista(error instanceof Error ? error.message : 'Não foi possível excluir a reserva.');
+      },
+    });
   }
 
   if (salasQuery.isError) {
@@ -316,7 +334,23 @@ export default function AgendamentosPage() {
                             const editavel = solicitada || estado === 'FUTURA';
 
                             if (!editavel && estado === 'FINALIZADA') {
-                              return <span className="text-xs text-[var(--color-text-muted)]">Encerrada</span>;
+                              if (!isMaster) return <span className="text-xs text-[var(--color-text-muted)]">Encerrada</span>;
+                              return (
+                                <div className="inline-flex items-center justify-end gap-2">
+                                  <span className="text-xs text-[var(--color-text-muted)]">Encerrada</span>
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    className="gap-1.5"
+                                    onClick={() => setParaExcluir(reserva)}
+                                    aria-label={`Excluir reserva encerrada de ${reserva.solicitante.nome}`}
+                                    title="Excluir permanentemente (master)"
+                                  >
+                                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+                                    Excluir
+                                  </Button>
+                                </div>
+                              );
                             }
 
                             return (
@@ -468,6 +502,24 @@ export default function AgendamentosPage() {
                 : podeGerenciar
                   ? 'Cancelar reserva'
                   : 'Cancelar solicitação'}
+            </Button>
+          </FormActions>
+        </div>
+      </Dialog>
+
+      <Dialog open={!!paraExcluir} onOpenChange={(aberto) => !aberto && setParaExcluir(null)} title="Excluir reserva encerrada">
+        <div className="flex flex-col gap-5">
+          <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+            Excluir permanentemente a reserva de <strong>{paraExcluir?.solicitante.nome}</strong> em{' '}
+            <strong>{paraExcluir?.sala.nome}</strong>? Ação exclusiva de master — reservas encerradas normalmente não
+            podem ser removidas. Não há como desfazer.
+          </p>
+          <FormActions>
+            <Button type="button" variant="secondary" onClick={() => setParaExcluir(null)} disabled={deleteMutation.isPending}>
+              Voltar
+            </Button>
+            <Button type="button" variant="danger" onClick={confirmarExclusao} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? 'Excluindo...' : 'Excluir permanentemente'}
             </Button>
           </FormActions>
         </div>

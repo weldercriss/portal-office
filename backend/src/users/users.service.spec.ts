@@ -7,6 +7,9 @@ import { PermissoesService } from '../permissoes/permissoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from './dto/create-user.dto';
 
+const ADMIN_CHAMADOR = { id: 'admin1', role: 'ADMIN' };
+const MASTER_CHAMADOR = { id: 'master1', role: 'MASTER' };
+
 describe('UsersService', () => {
   let service: UsersService;
   const prismaMock = {
@@ -87,7 +90,7 @@ describe('UsersService', () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: '1', ativo: true, acessoPlataforma: true, senhaHash: 'old-hash' });
     prismaMock.$transaction.mockImplementation((cb: any) => cb(prismaMock));
     prismaMock.user.update.mockResolvedValue({ id: '1', ativo: true, acessoPlataforma: false });
-    const result = await service.update('1', { acessoPlataforma: false });
+    const result = await service.update('1', { acessoPlataforma: false }, ADMIN_CHAMADOR);
     const data = prismaMock.user.update.mock.calls[0][0].data;
     expect(data).toMatchObject({ acessoPlataforma: false, senhaHash: '' });
     expect(data).not.toHaveProperty('ativo');
@@ -98,7 +101,7 @@ describe('UsersService', () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: '1', ativo: true, acessoPlataforma: false, senhaHash: '' });
     prismaMock.$transaction.mockImplementation((cb: any) => cb(prismaMock));
     prismaMock.user.update.mockResolvedValue({ id: '1', acessoPlataforma: true });
-    const result = await service.update('1', { acessoPlataforma: true, senha });
+    const result = await service.update('1', { acessoPlataforma: true, senha }, ADMIN_CHAMADOR);
     const data = prismaMock.user.update.mock.calls[0][0].data;
     expect(data).not.toHaveProperty('senha');
     expect(await bcrypt.compare(senha ?? result.senhaGerada!, data.senhaHash)).toBe(true);
@@ -109,7 +112,7 @@ describe('UsersService', () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: '1', acessoPlataforma: true, senhaHash: 'existing' });
     prismaMock.$transaction.mockImplementation((cb: any) => cb(prismaMock));
     prismaMock.user.update.mockResolvedValue({ id: '1', acessoPlataforma: true });
-    const result = await service.update('1', { nome: 'Outro nome', acessoPlataforma: true });
+    const result = await service.update('1', { nome: 'Outro nome', acessoPlataforma: true }, ADMIN_CHAMADOR);
     expect(prismaMock.user.update.mock.calls[0][0].data.senhaHash).toBeUndefined();
     expect(result.senhaGerada).toBeUndefined();
   });
@@ -126,7 +129,7 @@ describe('UsersService', () => {
       user: { update: jest.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: '4b', ...data })) },
     };
     prismaMock.$transaction.mockImplementation((cb: any) => cb(tx));
-    await service.update('4b', { dataAdmissao: '2022-03-01' });
+    await service.update('4b', { dataAdmissao: '2022-03-01' }, ADMIN_CHAMADOR);
     const dataArg = tx.user.update.mock.calls[0][0].data;
     expect(dataArg.dataAdmissao).toBeInstanceOf(Date);
   });
@@ -134,7 +137,7 @@ describe('UsersService', () => {
   it('soft-deletes on remove (ativo=false)', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: '5' });
     prismaMock.user.update.mockResolvedValue({ id: '5', ativo: false });
-    await service.remove('5');
+    await service.remove('5', ADMIN_CHAMADOR);
     expect(prismaMock.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: '5' }, data: { ativo: false } }),
     );
@@ -179,14 +182,70 @@ describe('UsersService', () => {
 
   it('throws NotFound when finding a missing user', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
-    await expect(service.findOne('nope')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.findOne('nope', ADMIN_CHAMADOR)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('permanently deletes an inactive user', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: '8', ativo: false });
     prismaMock.user.delete.mockResolvedValue({ id: '8' });
 
-    await expect(service.deletePermanently('8')).resolves.toEqual({ success: true });
+    await expect(service.deletePermanently('8', ADMIN_CHAMADOR)).resolves.toEqual({ success: true });
     expect(prismaMock.user.delete).toHaveBeenCalledWith({ where: { id: '8' } });
+  });
+
+  describe('master', () => {
+    it('excludes MASTER from the colaboradores listing for a non-master caller', () => {
+      service.findAll(ADMIN_CHAMADOR);
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { role: { not: 'MASTER' } } }),
+      );
+    });
+
+    it('lists everyone, masters included, when the caller is master', () => {
+      service.findAll(MASTER_CHAMADOR);
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: undefined }));
+    });
+
+    it('hides a master user from findOne/update/remove/deletePermanently when the caller is not master (same 404 as a missing id)', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ id: 'm1', role: 'MASTER' });
+      await expect(service.findOne('m1', ADMIN_CHAMADOR)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.update('m1', {}, ADMIN_CHAMADOR)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.remove('m1', ADMIN_CHAMADOR)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.deletePermanently('m1', ADMIN_CHAMADOR)).rejects.toBeInstanceOf(NotFoundException);
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+      expect(prismaMock.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('lets a master manage another master normally', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ id: 'm1', role: 'MASTER' });
+      prismaMock.user.update.mockResolvedValue({ id: 'm1', ativo: false });
+      await expect(service.remove('m1', MASTER_CHAMADOR)).resolves.toEqual({ id: 'm1', ativo: false });
+    });
+
+    it('lists only master users in findMasters', async () => {
+      prismaMock.user.findMany.mockResolvedValue([{ id: 'm1', role: 'MASTER' }]);
+      await expect(service.findMasters()).resolves.toEqual([{ id: 'm1', role: 'MASTER' }]);
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { role: 'MASTER' } }));
+    });
+
+    it('creates a master user with a hashed password, no colaborador fields required', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null);
+      prismaMock.user.create.mockImplementation(({ data }: any) => Promise.resolve({ id: 'novo-master', ...data }));
+
+      const criado = await service.createMaster({ nome: 'Novo Master', email: 'novo@suri.ai', senha: 'senha123456' });
+
+      const dataArg = prismaMock.user.create.mock.calls[0][0].data;
+      expect(dataArg).toMatchObject({ nome: 'Novo Master', email: 'novo@suri.ai', role: 'MASTER', ativo: true, acessoPlataforma: true });
+      expect(dataArg.senhaHash).not.toBe('senha123456');
+      expect(await bcrypt.compare('senha123456', dataArg.senhaHash)).toBe(true);
+      expect(criado.role).toBe('MASTER');
+    });
+
+    it('rejects creating a master with an e-mail already in use', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ id: 'existente' });
+      await expect(
+        service.createMaster({ nome: 'Dup', email: 'ja@suri.ai', senha: 'senha123456' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
   });
 });

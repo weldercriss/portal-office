@@ -5,6 +5,7 @@ import { BRAND_MARK_ALT, BRAND_MARK_LIGHT, PRODUCT_NAME } from '../../config/bra
 import { APP_VERSION } from '../../lib/version';
 import { NotificationBell } from '../../modules/notificacoes/components/NotificationBell';
 import { useAuth } from '../../shared/auth/AuthContext';
+import { satisfazRole } from '../../types/auth.types';
 import { AppsMenu } from './AppsMenu';
 import { NAV_ITEMS } from './navigation';
 import { UserDropdown } from './UserDropdown';
@@ -30,8 +31,10 @@ function RailTooltip({ label }: { label: string }) {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = satisfazRole(user?.role, 'ADMIN');
+  const isMaster = user?.role === 'MASTER';
   const navItems = NAV_ITEMS.filter((item) => {
+    if (item.masterOnly) return isMaster;
     if (item.adminOnly) return isAdmin;
     if (item.rotina) return isAdmin || Boolean(user?.rotinas.includes(item.rotina));
     return true;

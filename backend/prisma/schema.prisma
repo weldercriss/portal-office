@@ -7,9 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// MASTER e' um papel acima de ADMIN, para administracao da propria plataforma
+/// (nao e' um colaborador -- fica de fora das listas de colaboradores). So um
+/// MASTER pode criar outro MASTER. Ver AI/SKILLS/BACKEND/autenticacao-e-autorizacao.md.
 enum Role {
   ADMIN
   USER
+  MASTER
 }
 
 enum AuthChallengeFinalidade {
@@ -161,6 +165,13 @@ enum AlocacaoStatus {
   CANCELADA
 }
 
+enum LogAplicacaoResultado {
+  SUCESSO
+  ERRO_CLIENTE
+  ERRO_SERVIDOR
+  ABORTADA
+}
+
 model User {
   id                       String                      @id @default(uuid())
   nome                     String
@@ -223,6 +234,7 @@ model User {
   alocacoesRegistradas     AlocacaoEquipamento[]       @relation("AlocacaoRegistradoPor")
   convitesAgendaCriados    ConviteAgendaEvento[]       @relation("ConviteAgendaCriadoPor")
   convitesAgendaRecebidos  ConviteAgendaDestinatario[]
+  logsAplicacao            LogAplicacao[]
 }
 
 model Group {
@@ -910,4 +922,57 @@ model AlocacaoEquipamento {
   @@index([equipamentoId])
   @@index([colaboradorId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Modulo de logs da aplicacao: historico curto e ciclico das requisicoes HTTP
+// recebidas pela API, para diagnostico administrativo. Nunca guarda body,
+// query string, headers completos nem parametros concretos de rota.
+// ---------------------------------------------------------------------------
+
+/// Um registro por requisicao HTTP elegivel. A rotacao (100 por ciclo, apaga
+/// o lote anterior inteiro ao virar) e controlada por LogAplicacaoControle.
+model LogAplicacao {
+  id           String                @id @default(uuid())
+  requestId    String                @unique
+  ciclo        Int
+  sequencia    Int
+  resultado    LogAplicacaoResultado
+  metodo       String
+  /// Template da rota (ex.: "PATCH /users/:id"), nunca a URL concreta.
+  rota         String
+  statusHttp   Int
+  duracaoMs    Int
+  iniciadoEm   DateTime
+  finalizadoEm DateTime
+  usuarioId    String?
+  usuario      User?                 @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  /// Snapshot do nome/e-mail no momento da requisicao, para o log continuar
+  /// legivel se o usuario mudar ou for removido.
+  usuarioNome  String?
+  usuarioEmail String?
+  ipOrigem     String?
+  userAgent    String?
+  erroClasse   String?
+  erroMensagem String?
+  erroStack    String?
+  erroDetalhes String?
+  criadoEm     DateTime              @default(now())
+
+  @@unique([ciclo, sequencia])
+  @@index([finalizadoEm])
+  @@index([resultado])
+  @@index([statusHttp])
+  @@index([usuarioId])
+}
+
+/// Linha singleton (id sempre 1) que controla a rotacao de LogAplicacao. A
+/// virada (zerar quantidade, incrementar ciclo, apagar o lote anterior) roda
+/// dentro de uma transacao com advisory lock do Postgres, para nao ultrapassar
+/// 100 registros sob concorrencia (ver logs-aplicacao.service.ts).
+model LogAplicacaoControle {
+  id           Int      @id @default(1)
+  ciclo        Int      @default(1)
+  quantidade   Int      @default(0)
+  atualizadoEm DateTime @updatedAt
 }

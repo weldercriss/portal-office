@@ -33,6 +33,33 @@ de role só nos métodos que exigem `ADMIN`. Não inverta — não coloque
 `RolesGuard` na classe se existe operação de leitura que outros perfis também
 devem acessar.
 
+## Hierarquia de papéis: `USER < ADMIN < MASTER`
+
+`Role` tem três valores. `MASTER` é administração da própria plataforma (não
+é colaborador — ver `AI/CONTEXT.md#3-identidade-e-permissões`), acima de
+`ADMIN`. A hierarquia é resolvida em `backend/src/auth/roles.util.ts`
+(`satisfazRole(role, minimo)` e `ehAdminOuSuperior(role)`), nunca por
+comparação direta de string:
+
+- `RolesGuard` já usa `satisfazRole` — `@Roles('ADMIN')` deixa passar `ADMIN`
+  **e** `MASTER` automaticamente; `@Roles('MASTER')` (ex.:
+  `logs-aplicacao.controller.ts`) só deixa passar `MASTER`. Não é preciso
+  escrever `@Roles('ADMIN', 'MASTER')`.
+- Qualquer checagem manual de "é admin" ou "é dono ou admin" dentro de
+  service/controller usa `ehAdminOuSuperior(usuario.role)`, nunca
+  `usuario.role === 'ADMIN'`/`!== 'ADMIN'` — senão um `MASTER` fica de fora
+  dessa checagem específica mesmo passando no guard da rota. Exemplos reais:
+  `PermissoesService.resolveRotinas` (bypass total de rotina),
+  `SolicitacoesService`/`DocumentosService`/`AlocacoesService` (dono ou
+  admin acessa um recurso de terceiro).
+- O frontend espelha isso em `satisfazRole` (`frontend/src/types/auth.types.ts`)
+  — mesma regra: nunca `user.role === 'ADMIN'` solto quando o objetivo é "é
+  admin ou mais".
+- Um endpoint exclusivo de `MASTER` (não herdado por `ADMIN`) precisa mesmo
+  assim excluir explicitamente quem não é master de enxergar o recurso — ver
+  `UsersService.findAll`/`findOne`/`update`/`remove` (um `ADMIN` recebe 404,
+  igual a um id inexistente, para um usuário `MASTER`, nunca 403).
+
 ## Checklist
 
 - [ ] Controller novo tem `@UseGuards(JwtAuthGuard, RotinaGuard)` e
@@ -42,3 +69,5 @@ devem acessar.
       restrita a administradores?
 - [ ] Nenhuma verificação de role/rotina foi reimplementada manualmente no
       service?
+- [ ] Checagem manual de "é admin" usa `ehAdminOuSuperior`/`satisfazRole`,
+      não `role === 'ADMIN'` direto?

@@ -3,6 +3,7 @@ import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { CreateChecklistItemDto, UpdateChecklistItemDto } from './dto/checklist-item.dto';
 import { OnboardingService } from './onboarding.service';
 
@@ -13,7 +14,7 @@ interface UsuarioAutenticado {
 
 function garantirAcesso(req: Request, userId: string) {
   const usuario = req.user as UsuarioAutenticado;
-  if (usuario.role !== 'ADMIN' && usuario.id !== userId) {
+  if (!ehAdminOuSuperior(usuario.role) && usuario.id !== userId) {
     throw new ForbiddenException('Você não tem acesso ao checklist deste colaborador');
   }
 }

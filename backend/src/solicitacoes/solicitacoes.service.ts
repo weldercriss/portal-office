@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
+import { ehAdminOuSuperior } from '../auth/roles.util';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ANEXO_DIR } from './anexo.storage';
@@ -99,7 +100,7 @@ export class SolicitacoesService {
     }
 
     if (!tipo.requerAprovacao) {
-      if (requisitante.role !== 'ADMIN') {
+      if (!ehAdminOuSuperior(requisitante.role)) {
         throw new ForbiddenException('Apenas administradores podem registrar este tipo de solicitação');
       }
       if (!dto.userId) throw new BadRequestException('Informe o colaborador');
@@ -121,7 +122,7 @@ export class SolicitacoesService {
       });
     }
 
-    const userId = requisitante.role === 'ADMIN' ? (dto.userId ?? requisitante.id) : requisitante.id;
+    const userId = ehAdminOuSuperior(requisitante.role) ? (dto.userId ?? requisitante.id) : requisitante.id;
     const solicitacao = await this.prisma.solicitacao.create({
       data: {
         userId,
@@ -136,7 +137,7 @@ export class SolicitacoesService {
       include: SOLICITACAO_INCLUDE,
     });
 
-    if (requisitante.role !== 'ADMIN') {
+    if (!ehAdminOuSuperior(requisitante.role)) {
       await this.notificacoesService.criarParaAdmins({
         tipo: 'SOLICITACAO_CRIADA',
         titulo: `Nova solicitação de ${tipo.nome}`,
@@ -238,7 +239,7 @@ export class SolicitacoesService {
 
   async cancelar(id: string, requisitante: Requisitante) {
     const atual = await this.obterOuFalhar(id);
-    if (requisitante.role !== 'ADMIN' && atual.userId !== requisitante.id) {
+    if (!ehAdminOuSuperior(requisitante.role) && atual.userId !== requisitante.id) {
       throw new ForbiddenException('Você só pode cancelar sua própria solicitação');
     }
     if (!atual.tipo.requerAprovacao) {
@@ -269,7 +270,7 @@ export class SolicitacoesService {
 
   async anexar(id: string, file: Express.Multer.File, requisitante: Requisitante) {
     const atual = await this.obterOuFalhar(id);
-    if (requisitante.role !== 'ADMIN' && atual.userId !== requisitante.id) {
+    if (!ehAdminOuSuperior(requisitante.role) && atual.userId !== requisitante.id) {
       await unlink(file.path).catch(() => undefined);
       throw new ForbiddenException('Você só pode anexar arquivos à sua própria solicitação');
     }
@@ -285,7 +286,7 @@ export class SolicitacoesService {
 
   async obterAnexo(id: string, requisitante: Requisitante) {
     const atual = await this.obterOuFalhar(id);
-    if (requisitante.role !== 'ADMIN' && atual.userId !== requisitante.id) {
+    if (!ehAdminOuSuperior(requisitante.role) && atual.userId !== requisitante.id) {
       throw new ForbiddenException('Você só pode acessar o anexo da sua própria solicitação');
     }
     if (!atual.anexoCaminho) throw new NotFoundException('Esta solicitação não possui anexo');
@@ -298,7 +299,7 @@ export class SolicitacoesService {
 
   async anexarCampoFormulario(id: string, campoId: string, file: Express.Multer.File, requisitante: Requisitante) {
     const atual = await this.obterOuFalhar(id);
-    if (requisitante.role !== 'ADMIN' && atual.userId !== requisitante.id) {
+    if (!ehAdminOuSuperior(requisitante.role) && atual.userId !== requisitante.id) {
       await unlink(file.path).catch(() => undefined);
       throw new ForbiddenException('Você só pode anexar arquivos à sua própria solicitação');
     }
@@ -308,7 +309,7 @@ export class SolicitacoesService {
 
   async obterAnexoCampoFormulario(id: string, campoId: string, requisitante: Requisitante) {
     const atual = await this.obterOuFalhar(id);
-    if (requisitante.role !== 'ADMIN' && atual.userId !== requisitante.id) {
+    if (!ehAdminOuSuperior(requisitante.role) && atual.userId !== requisitante.id) {
       throw new ForbiddenException('Você só pode acessar o anexo da sua própria solicitação');
     }
     return this.obterAnexoCampoDe(atual.respostasFormulario, campoId);

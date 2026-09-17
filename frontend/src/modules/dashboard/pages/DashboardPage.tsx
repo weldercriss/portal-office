@@ -9,6 +9,7 @@ import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { usePlantoes } from '../../plantoes/hooks/usePlantoes';
 import { useMinhasSolicitacoes } from '../../solicitacoes/hooks/useSolicitacoes';
 import { useAuth } from '../../../shared/auth/AuthContext';
+import { satisfazRole } from '../../../types/auth.types';
 import AdminDashboardPage from './AdminDashboardPage';
 
 function hoje() {
@@ -50,7 +51,7 @@ function ListaResumo({
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  if (user?.role === 'ADMIN') return <AdminDashboardPage />;
+  if (satisfazRole(user?.role, 'ADMIN')) return <AdminDashboardPage />;
   return <ColaboradorDashboard />;
 }
 

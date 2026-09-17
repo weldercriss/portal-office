@@ -2,10 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../shared/auth/AuthContext';
+import type { UserRole } from '../types/auth.types';
 import { ProtectedRoute } from './ProtectedRoute';
 
 function renderWithUser(
-  user: { id: string; nome: string; email: string; role: 'ADMIN' | 'USER'; rotinas: string[] } | null,
+  user: { id: string; nome: string; email: string; role: UserRole; rotinas: string[] } | null,
   initialPath: string,
 ) {
   return render(
@@ -19,6 +20,14 @@ function renderWithUser(
             element={
               <ProtectedRoute requireRole="ADMIN">
                 <p>admin de usuários</p>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/logs"
+            element={
+              <ProtectedRoute requireRole="MASTER">
+                <p>tela do master</p>
               </ProtectedRoute>
             }
           />
@@ -42,5 +51,20 @@ describe('ProtectedRoute', () => {
   it('renders the protected content for an ADMIN', () => {
     renderWithUser({ id: '1', nome: 'Admin', email: 'admin@example.com', role: 'ADMIN', rotinas: [] }, '/usuarios');
     expect(screen.getByText('admin de usuários')).toBeInTheDocument();
+  });
+
+  it('lets MASTER through an ADMIN-only route (hierarquia)', () => {
+    renderWithUser({ id: '1', nome: 'Master', email: 'master@example.com', role: 'MASTER', rotinas: [] }, '/usuarios');
+    expect(screen.getByText('admin de usuários')).toBeInTheDocument();
+  });
+
+  it('redirects an ADMIN away from a MASTER-only route', () => {
+    renderWithUser({ id: '1', nome: 'Admin', email: 'admin@example.com', role: 'ADMIN', rotinas: [] }, '/logs');
+    expect(screen.getByText('meu perfil')).toBeInTheDocument();
+  });
+
+  it('renders the protected content for MASTER on a MASTER-only route', () => {
+    renderWithUser({ id: '1', nome: 'Master', email: 'master@example.com', role: 'MASTER', rotinas: [] }, '/logs');
+    expect(screen.getByText('tela do master')).toBeInTheDocument();
   });
 });

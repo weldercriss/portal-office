@@ -250,20 +250,40 @@ plantonista — ficam soltas até o admin cancelar manualmente pela tela
 (simplificação deliberada, ver comentário `ponytail:` em
 `plantoes-recorrencia.worker.ts`).
 
-## 13. Módulo de logs da aplicação — planejamento, não iniciado
+## 13. Módulo de logs da aplicação — implementado em 17/09/2026
 
-Plano gerado em 17/09/2026 em
-[docs/features-planning/logs-aplicacao.md](../docs/features-planning/logs-aplicacao.md).
-A proposta registra as requisições HTTP recebidas pelo backend, associa o usuário
-quando autenticado, guarda detalhes sanitizados de erros e oferece uma tela
-exclusiva de `ADMIN`. O histórico trabalha em ciclos: mantém 100 entradas e, na
-requisição elegível seguinte, apaga o lote anterior e inicia o próximo ciclo em
-1. A consulta do próprio módulo e requisições `OPTIONS` ficam fora da contagem.
+Plano em
+[docs/features-planning/logs-aplicacao.md](../docs/features-planning/logs-aplicacao.md),
+implementado na mesma data seguindo as cinco fases do plano. Detalhe de
+arquitetura e API em [docs/reference/logs-aplicacao.md](../docs/reference/logs-aplicacao.md)
+e em [CONTEXT.md](CONTEXT.md#logs-da-aplicação); registro completo da sessão em
+[SESSIONS/17-09-2026.md](SESSIONS/17-09-2026.md#módulo-de-logs-da-aplicação-implementação).
 
-Antes de implementar, preservar as decisões de segurança do plano: não armazenar
-body, resposta, cookies, tokens, headers completos, query string nem parâmetros
-concretos de rota. A virada do ciclo precisa ser atômica mesmo com requisições
-concorrentes e múltiplas réplicas.
+- [x] `LogAplicacao`/`LogAplicacaoControle`/`LogAplicacaoResultado` no schema,
+      service com rotação transacional protegida por advisory lock.
+- [x] Middleware global (`requestId`, contexto, `X-Request-Id`) e exception
+      filter global (`@Catch()` estendendo `BaseExceptionFilter`) capturando
+      toda requisição elegível sem alterar a resposta original.
+- [x] Sanitização: nunca persiste body, query string, headers completos,
+      cookies, tokens/senhas ou parâmetros concretos de rota; remove padrões
+      de segredo de mensagem/stack e trunca por tamanho.
+- [x] `GET /logs-aplicacao` (filtros + estado do ciclo) e `GET
+      /logs-aplicacao/:id`, `ADMIN`-only, sem rotina própria.
+- [x] Frontend em `frontend/src/modules/logs-aplicacao/`, rota `/logs`, item
+      **Logs** no menu (`adminOnly`), atualização automática (10s) e manual,
+      diálogo de detalhe com stack sanitizado.
+- [x] Testes: backend 48 casos novos (sanitizer, service — inclusive a virada
+      100→1 e a ordem lock-antes-de-ler —, middleware, exception filter) e
+      frontend 7 casos na página; suítes completas de backend (477 testes,
+      1 falha pré-existente e alheia: `prisma.service.spec.ts` exige Postgres
+      real) e frontend (187 testes, 1 falha pré-existente e alheia:
+      `App.test.tsx` — confirmada via stash, já falha na `main` sem esta
+      mudança) e ambos os builds passando.
+- [ ] Migration `20260917200000_add_logs_aplicacao` escrita à mão (sem
+      Postgres acessível neste ambiente) — **pendência operacional: rodar
+      `prisma migrate deploy` no ambiente com o banco antes do próximo
+      deploy**, e então validar manualmente um ciclo completo (101
+      requisições) contra o banco real.
 
 ## 14. Solicitação de reserva de sala pelo colaborador — implementada em 17/09/2026
 
@@ -277,3 +297,75 @@ Plano e contrato de continuidade em
 - [x] Fazer a solicitação ocupar o horário, avisar solicitante e administradores e sincronizar a Agenda Google somente depois da confirmação.
 - [x] Cobrir serviço, autorização e interface; os testes direcionados finais passaram (74 backend e 24 frontend) e o build do frontend passou. A suíte completa do frontend chegou a passar com 175 testes antes das mudanças concorrentes em `convites-agenda`; a repetição final ficou com 9 falhas somente no teste desse módulo externo à tarefa.
 - [ ] Aplicar nos ambientes de destino a migration `20260917044610_permite_solicitacao_sala_colaborador`. Ela foi gerada com `prisma migrate dev --create-only` e não foi aplicada ao banco local compartilhado porque há outras migrations sendo desenvolvidas por agentes em paralelo.
+
+## 16. Papel MASTER (administração de plataforma) — implementado em 17/09/2026
+
+Pedido: um papel acima de `ADMIN`, para administração da própria plataforma
+(começando pelo módulo de logs da aplicação, item 13), que não aparece na
+lista de colaboradores e só pode ser criado por outro master, com "poder
+total" — inclusive apagar registros que uma regra de negócio normalmente
+bloqueia (ex.: reservas de sala já encerradas). Login padrão
+`admin@suri.ai` / `@@@@@@1234567890`; o usuário avisou que em produção já
+existe uma conta com esse e-mail/senha, então a migration deveria promovê-la
+em vez de recriá-la.
+
+**Hierarquia, não papel isolado.** `Role` ganhou `MASTER`
+(`ADMIN < MASTER`... na prática `USER < ADMIN < MASTER`), resolvida por
+`satisfazRole`/`ehAdminOuSuperior` (`backend/src/auth/roles.util.ts`,
+espelhado no frontend por `satisfazRole` em `frontend/src/types/auth.types.ts`)
+— documentado como convenção nova em
+`AI/SKILLS/BACKEND/autenticacao-e-autorizacao.md`. `RolesGuard` e
+`PermissoesService.resolveRotinas` passaram a usar essa hierarquia, então
+`@Roles('ADMIN')` já deixa `MASTER` passar sem listar os dois papéis; todo
+`role === 'ADMIN'`/`!== 'ADMIN'` solto em service/controller do backend (9
+arquivos: `documentos`, `dependentes`, `onboarding`, `treinamentos`,
+`solicitacoes`, `patrimonio` × 2, `plantoes`) e no frontend (`DashboardPage`,
+`AgendamentosPage`, `PatrimonioPage`) foi trocado pelo helper, para o master
+herdar automaticamente tudo que já era permitido a um admin, em vez de ficar
+de fora de checagens específicas.
+
+**Invisível para quem não é master.** `UsersService.findAll` exclui
+`role=MASTER` da listagem de colaboradores por padrão (só um master vê
+outro master); `findOne`/`update`/`remove`/`deletePermanently` devolvem o
+mesmo 404 de "não encontrado" para um alvo master quando quem chama não é
+master, em vez de 403 (não confirma nem que o id existe). O DTO de
+colaborador (`CreateUserDto`/`UserRole`) não inclui `MASTER` — a única forma
+de criar um master é `POST /users/masters` (`CreateMasterUserDto`: nome,
+e-mail, senha — sem os campos de RH), exclusivo de `@Roles('MASTER')`.
+
+**Seed/promoção do master padrão.** Duas migrations, obrigatoriamente
+separadas (Postgres não deixa usar um valor de enum na mesma transação em
+que ele foi adicionado): `20260917220000_add_master_role` (`ALTER TYPE
+"Role" ADD VALUE 'MASTER'`) e `20260917220100_promove_master_admin_suri`
+(`INSERT ... ON CONFLICT ("email") DO UPDATE SET "role" = 'MASTER'` para
+`admin@suri.ai` — promove sem tocar em senha/demais dados se o e-mail já
+existir, como no ambiente de produção do usuário; cria com a senha padrão
+em hash caso contrário). Hash bcrypt pré-computado (custo 12, mesmo padrão
+de `seed-production.ts`) porque migration não roda código Node.
+`backend/prisma/seed.ts` (dev) ganhou o mesmo upsert, custo 10.
+
+**Frontend.** `frontend/src/modules/master/` (`MasterUsuariosPage.tsx`,
+lista + criação) na rota `/master/usuarios`, e `/logs` (logs da aplicação,
+item 13) virou `masterOnly` em vez de `adminOnly` — nem admin comum acessa
+mais. `NavItem` ganhou `masterOnly`; `ProtectedRoute` e `AppShell` usam a
+hierarquia. Em `/agendamentos`, uma reserva confirmada já encerrada (estado
+`FINALIZADA`) ganhou um botão **Excluir** visível só para master — a API
+(`ReservasService.remove`) nunca teve essa restrição, só a tela escondia a
+ação para todo mundo; não foi preciso mudar o backend, só revelar a ação já
+suportada.
+
+**Escopo deliberadamente não coberto**, por falta de especificação: quais
+outros módulos além de logs-aplicacao deveriam ficar `masterOnly` (só esse
+foi pedido explicitamente) e outras regras de negócio "que normalmente não
+podem" além das duas citadas (reservas encerradas, cobertas; solicitações já
+permitiam exclusão irrestrita mesmo antes desta tarefa, então nada mudou
+lá). Se surgir um caso concreto novo, o padrão é: guard/rota vira
+`@Roles('MASTER')` quando exclusivo, ou a checagem específica ganha um
+`if (chamador.role === 'MASTER') { /* bypass */ }` pontual perto da regra
+que ela ignora — não um bypass genérico global.
+
+- [x] Backend: enum `MASTER`, duas migrations, `roles.util.ts`, `RolesGuard`/`PermissoesService` com hierarquia, sweep dos 9 arquivos com `role === 'ADMIN'` literal, `UsersService`/`UsersController` (`findAll` mascarado, 404 para alvo master, `POST/GET /users/masters`), `logs-aplicacao.controller.ts` para `@Roles('MASTER')`, seed de dev.
+- [x] Frontend: `UserRole`/`satisfazRole`, `ProtectedRoute`/`AppShell`/`navigation.ts` com hierarquia e `masterOnly`, módulo `master/` completo, rota `/master/usuarios`, exclusão de reserva encerrada em `AgendamentosPage.tsx`.
+- [x] Testes: `roles.util.spec.ts` (novo), `roles.guard.spec.ts` (+3 casos de hierarquia), `users.service.spec.ts` (+7 casos de master, chamador roteado em todas as chamadas existentes), `ProtectedRoute.test.tsx` (+3 casos), `AgendamentosPage.test.tsx` (+1 caso, com a pegadinha de fake timers travando `userEvent` documentada no próprio teste). Suíte completa: backend 39 arquivos (só a falha pré-existente de `prisma.service.spec.ts`, sem Postgres); frontend 34 arquivos (só a falha pré-existente de `App.test.tsx`, confirmada via `git stash` que já existia antes desta tarefa). Ambos os builds (`tsc -b`/`nest build`) limpos.
+- [ ] **Pendência operacional: rodar `prisma migrate deploy`** das duas migrations novas no ambiente com banco real antes do próximo deploy — sem isso, `admin@suri.ai` não vira master em produção. Confirmar depois que o login com `admin@suri.ai`/`@@@@@@1234567890` funciona e que a conta some da listagem de colaboradores para um `ADMIN` comum.
+- [ ] Trocar a senha padrão do master (`@@@@@@1234567890`) por uma definitiva assim que possível — é um valor conhecido publicamente agora que está registrado aqui e na migration.

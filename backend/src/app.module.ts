@@ -12,6 +12,7 @@ import { DependentesModule } from './dependentes/dependentes.module';
 import { DocumentosModule } from './documentos/documentos.module';
 import { GroupsModule } from './groups/groups.module';
 import { HistoricoModule } from './historico-profissional/historico.module';
+import { LogsAplicacaoModule } from './logs-aplicacao/logs-aplicacao.module';
 import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PatrimonioModule } from './patrimonio/patrimonio.module';
@@ -52,6 +53,7 @@ import { UsersModule } from './users/users.module';
     DashboardModule,
     DependentesModule,
     HistoricoModule,
+    LogsAplicacaoModule,
     OnboardingModule,
     DocumentosModule,
     TreinamentosModule,

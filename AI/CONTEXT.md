@@ -2,13 +2,13 @@
 
 Atualizado em **17/09/2026** a partir dos arquivos presentes neste checkout, incluindo alterações locais ainda não commitadas.
 
-Este documento descreve o sistema implementado. A leitura do repositório não confirma quais migrations estão aplicadas no banco, quais integrações estão habilitadas nem qual versão está publicada. Nesta atualização, o frontend novo de patrimônio foi validado com `tsc -b` e a suíte de testes do frontend (`npm.cmd test`); backend, migrations e deploy não foram executados.
+Este documento descreve o sistema implementado. A leitura do repositório não confirma quais migrations estão aplicadas no banco, quais integrações estão habilitadas nem qual versão está publicada. Nesta atualização, o módulo de logs da aplicação e o papel `MASTER` (administração de plataforma) foram validados com build e suíte completa de backend e frontend; as migrations correspondentes foram escritas à mão (sem Postgres acessível neste ambiente) e continuam pendentes de `prisma migrate deploy` no ambiente de destino.
 
 ## 1. O que é o sistema
 
 Portal interno da Suri para administrar colaboradores e rotinas de RH e operação: departamentos, permissões, plantões, solicitações, reservas de salas, documentos, admissão e recrutamento. Possui notificações dentro do portal, integração com Telegram e sincronização com a Agenda Google.
 
-Existem dois perfis, `ADMIN` e `USER`. O cadastro de uma pessoa como colaborador é separado da autorização para ela entrar na plataforma. O módulo de patrimônio (cadastro de bens e vínculo com colaboradores) tem backend e frontend implementados.
+Existem dois perfis de colaborador, `ADMIN` e `USER`, mais um papel de administração de plataforma acima deles, `MASTER` (não é colaborador — ver seção 3). O cadastro de uma pessoa como colaborador é separado da autorização para ela entrar na plataforma. O módulo de patrimônio (cadastro de bens e vínculo com colaboradores) tem backend e frontend implementados.
 
 ## 2. Arquitetura e organização
 
@@ -44,7 +44,7 @@ As páginas são carregadas sob demanda com `lazy`/`Suspense`. Consultas e muta�
 
 - `ativo`: ativação do registro.
 - `acessoPlataforma`: autorização para login, com padrão `false` no schema.
-- `role`: perfil `ADMIN` ou `USER`.
+- `role`: perfil `ADMIN`, `USER` ou `MASTER`.
 - `statusColaborador`: situação de RH (`ATIVO`, `AFASTADO`, `FERIAS`, `DESLIGADO`).
 
 Login, refresh e autenticação HTTP verificam se a pessoa existe, está ativa e possui acesso à plataforma. A estratégia JWT consulta o usuário atual no banco, incluindo seu perfil, em vez de usar apenas o perfil gravado no token.
@@ -52,6 +52,30 @@ Login, refresh e autenticação HTTP verificam se a pessoa existe, está ativa e
 O login por e-mail/senha emite access token e refresh token. Os tempos padrão são 15 minutos e 7 dias, configuráveis por ambiente. O refresh fica em cookie HttpOnly; o frontend persiste usuário e access token no localStorage. O cliente HTTP tenta renovar o access token após uma resposta 401 e compartilha a renovação entre chamadas concorrentes. Logout limpa o cookie e a sessão local.
 
 As funcionalidades são representadas por `Rotina`. Para `USER`, as permissões vêm do departamento (`GroupRotina`), com concessões ou bloqueios individuais (`UserRotinaOverride`). Para `ADMIN`, o serviço resolve todas as rotinas ativas. Controllers combinam `JwtAuthGuard`, `RolesGuard` e `RotinaGuard` conforme a operação; o frontend também filtra menus e protege rotas.
+
+**`MASTER`: administração da própria plataforma, acima de `ADMIN`.** Não é
+colaborador — `UsersService.findAll` (usado por `GET /users`, a listagem de
+`/configuracoes/colaboradores`) sempre exclui `role=MASTER` para quem não é
+master; `findOne`/`update`/`remove`/`deletePermanently` devolvem o mesmo 404
+de "não encontrado" para quem tenta acessar um id de master sem ser master
+(nunca confirmam que o id existe). Só um master cria outro master, em
+`POST /users/masters` (`@Roles('MASTER')`) — o DTO de colaborador
+(`CreateUserDto`/`UserRole`) nem aceita `role: 'MASTER'`, então a única forma
+de promover alguém é por esse endpoint dedicado. Hierarquia é resolvida por
+`satisfazRole`/`ehAdminOuSuperior` em `backend/src/auth/roles.util.ts`
+(espelhado no frontend por `satisfazRole` em `frontend/src/types/auth.types.ts`):
+MASTER satisfaz qualquer checagem de `ADMIN` — em `RolesGuard`, em
+`PermissoesService.resolveRotinas` (bypass total de rotina) e em toda
+checagem de "dono ou admin" que existir em services/controllers — sem
+precisar listar os dois papéis em cada guard. Usuário master padrão:
+`admin@suri.ai`, seedado/promovido pela migration
+`20260917220100_promove_master_admin_suri` (promove sem tocar senha se o
+e-mail já existir, cria com senha `@@@@@@1234567890` caso contrário) e pelo
+seed de dev (`backend/prisma/seed.ts`). Tela exclusiva em `/master/usuarios`
+(`frontend/src/modules/master/`, item de menu `masterOnly`); `/logs`
+(logs da aplicação) também virou `masterOnly` — nem `ADMIN` comum acessa.
+Em `/agendamentos`, um master vê uma ação **Excluir** numa reserva já
+encerrada (que a API nunca restringiu, só a tela escondia para admins).
 
 Após login, administradores e usuários com a rotina `dashboard` vão para `/`; os demais vão para `/perfil`.
 
@@ -201,6 +225,14 @@ Frontend em `frontend/src/modules/patrimonio/`: `PatrimonioPage.tsx` (rota `/pat
 
 Pendências conhecidas, não implementadas: a página não mostra o **histórico** de alocações encerradas de um equipamento (só a alocação ativa, que é o que a API inclui por padrão) e a `FichaColaboradorPage.tsx` ainda não tem um bloco com os equipamentos da pessoa. Não há **aceite digital** do colaborador (confirmar recebimento pelo próprio portal) — por ora toda entrega é tratada como aceita assim que registrada; o aceite ficou combinado como evolução futura, sem desenho ainda. Testes: `equipamentos.service.spec.ts` e `alocacoes.service.spec.ts` cobrem `redigirColaborador` e `anexarTermoLote` no backend; `PatrimonioPage.test.tsx` cobre a seleção múltipla e o fallback "—" pra colaborador oculto no frontend.
 
+### Logs da aplicação
+
+API `/logs-aplicacao`, exclusiva do usuário `MASTER` (nem `ADMIN` comum acessa; sem rotina própria). Um middleware global (`LogsAplicacaoMiddleware`) e um exception filter global (`LogsAplicacaoExceptionFilter`, estende `BaseExceptionFilter`) registrados por `LogsAplicacaoModule` capturam toda requisição HTTP elegível — método, template da rota (nunca a URL concreta), status, duração, usuário autenticado quando houver e, em caso de falha, classe/mensagem/stack sanitizados — sem alterar a resposta que controllers/guards/`ValidationPipe` já produzem. `OPTIONS` e as consultas do próprio módulo (`GET /logs-aplicacao[/:id]`) ficam fora da captura.
+
+O histórico é cíclico: guarda no máximo 100 registros (`LogAplicacao`) por ciclo (`LogAplicacaoControle`, linha singleton). Cada gravação roda numa transação com advisory lock do Postgres; ao atingir 100, a próxima requisição elegível apaga o lote inteiro do ciclo anterior e recomeça a sequência em 1 — nunca uma janela deslizante. Nunca são persistidos body, query string, headers completos, cookies, tokens ou parâmetros concretos de rota.
+
+Frontend em `frontend/src/modules/logs-aplicacao/`, rota `/logs` (item **Logs** no menu, `masterOnly`). A tela atualiza a cada 10 segundos e por um botão manual, filtra por resultado/método/status/usuário/busca e abre o detalhe (request ID, tempos, origem, agente, stack) num diálogo. Ver [docs/reference/logs-aplicacao.md](../docs/reference/logs-aplicacao.md).
+
 ## 5. Integrações e tarefas em segundo plano
 
 ### Google: login e Agenda são autorizações distintas
@@ -235,6 +267,8 @@ O envio Telegram é disparado sem aguardar a entrega dentro de `NotificacoesServ
 | `/agendamentos` | Consulta de reservas; gestão para `ADMIN`; solicitação pessoal quando habilitada. |
 | `/solicitacoes` | Gestão administrativa ou solicitações pessoais. |
 | `/convites-agenda` | Convites de agenda em massa; `ADMIN` apenas. |
+| `/logs` | Logs técnicos das requisições HTTP; `MASTER` apenas. |
+| `/master/usuarios` | Gestão de usuários master; `MASTER` apenas. |
 | `/configuracoes/colaboradores` | Cadastro administrativo de colaboradores. |
 | `/configuracoes/colaboradores/:id` | Ficha de RH. |
 | `/configuracoes/departamentos` | Departamentos e subáreas. |
