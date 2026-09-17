@@ -239,9 +239,9 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
       className="max-w-4xl"
       fitViewport
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {exigeOrganizador && !organizadorQuery.isLoading && (
-          <div className="rounded-[var(--radius-field)] border border-[var(--color-border)] bg-[var(--color-surface-hover)] p-3 text-sm">
+          <div className="rounded-[var(--radius-field)] border border-[var(--color-border)] bg-[var(--color-surface-hover)] px-3 py-2 text-sm">
             {organizador?.conectado ? (
               <p className="text-[var(--color-text-secondary)]">
                 Os convites sairão de <strong>{organizador.email}</strong>.
@@ -267,7 +267,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
           <FormField label="Título" htmlFor="convite-titulo">
             <Input
               id="convite-titulo"
@@ -342,7 +342,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
             </div>
           </FormField>
         ) : (
-          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
             <FormField label={`Colaboradores (${emails.length}/${MAX_DESTINATARIOS})`} htmlFor="convite-colaboradores">
               <div className="flex flex-col gap-2">
                 <SearchField value={busca} onChange={setBusca} placeholder="Buscar por nome ou e-mail" />
@@ -351,7 +351,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
                 ) : (
                   <div
                     id="convite-colaboradores"
-                    className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-[var(--radius-field)] border border-[var(--color-border)] p-2"
+                    className="flex max-h-36 flex-col gap-1 overflow-y-auto rounded-[var(--radius-field)] border border-[var(--color-border)] p-2"
                   >
                     {colaboradoresFiltrados.map((colaborador) => {
                       const info = verificacao?.[colaborador.email.toLowerCase()];
