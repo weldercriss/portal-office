@@ -236,7 +236,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
       open={open}
       onOpenChange={onOpenChange}
       title={edicao ? 'Editar convite de agenda' : 'Novo convite de agenda'}
-      className="max-w-3xl"
+      className="max-w-4xl"
       fitViewport
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -267,8 +267,8 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-          <FormField label="Título" htmlFor="convite-titulo" className="sm:col-span-2">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-3">
+          <FormField label="Título" htmlFor="convite-titulo">
             <Input
               id="convite-titulo"
               value={titulo}
