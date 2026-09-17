@@ -288,7 +288,11 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
               required
             />
           </FormField>
-          <FormField label="Fim" htmlFor="convite-fim">
+          <FormField
+            label="Fim"
+            htmlFor="convite-fim"
+            error={inicio && fim && !intervaloValido ? 'Fim deve ser depois do início.' : undefined}
+          >
             <Input
               id="convite-fim"
               type="datetime-local"
@@ -338,7 +342,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
             </div>
           </FormField>
         ) : (
-          <>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
             <FormField label={`Colaboradores (${emails.length}/${MAX_DESTINATARIOS})`} htmlFor="convite-colaboradores">
               <div className="flex flex-col gap-2">
                 <SearchField value={busca} onChange={setBusca} placeholder="Buscar por nome ou e-mail" />
@@ -425,7 +429,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
                 </div>
               )}
             </FormField>
-          </>
+          </div>
         )}
 
         {erro && <p className="text-sm text-[var(--color-danger)]">{erro}</p>}

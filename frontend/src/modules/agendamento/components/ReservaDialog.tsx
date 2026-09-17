@@ -292,24 +292,26 @@ export function ReservaDialog({ open, onOpenChange, salas, reserva, dataPadrao, 
           </FormField>
         </div>
 
-        <FormField label="Enviar notificações para" htmlFor="reserva-destinatarios">
-          <Select
-            id="reserva-destinatarios"
-            value={destinatariosNotificacao}
-            onChange={(e) => setDestinatariosNotificacao(e.target.value as ReservaDestinatarios)}
-          >
-            <option value="SOLICITANTE">Somente solicitante</option>
-            <option value="RESPONSAVEL" disabled={!responsavelId}>Somente responsável</option>
-            <option value="AMBOS" disabled={!responsavelId}>Solicitante e responsável</option>
-          </Select>
-        </FormField>
+        <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+          <FormField label="Enviar notificações para" htmlFor="reserva-destinatarios">
+            <Select
+              id="reserva-destinatarios"
+              value={destinatariosNotificacao}
+              onChange={(e) => setDestinatariosNotificacao(e.target.value as ReservaDestinatarios)}
+            >
+              <option value="SOLICITANTE">Somente solicitante</option>
+              <option value="RESPONSAVEL" disabled={!responsavelId}>Somente responsável</option>
+              <option value="AMBOS" disabled={!responsavelId}>Solicitante e responsável</option>
+            </Select>
+          </FormField>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <StatusToggle checked={notificarTelegram} onChange={setNotificarTelegram} label="Notificar por Telegram" />
-          <p className="max-w-sm text-[13px] text-[var(--color-text-muted)]">
-            Avisa {destinatarios.map(({ usuario }) => usuario.nome).join(' e ') || 'os destinatários selecionados'} pelo bot
-            na criação, alteração, confirmação, cancelamento e 30 minutos antes do início e do fim.
-          </p>
+          <div className="flex flex-col justify-center gap-2">
+            <StatusToggle checked={notificarTelegram} onChange={setNotificarTelegram} label="Notificar por Telegram" />
+            <p className="text-[13px] text-[var(--color-text-muted)]">
+              Avisa {destinatarios.map(({ usuario }) => usuario.nome).join(' e ') || 'os destinatários selecionados'} pelo bot
+              na criação, alteração, confirmação, cancelamento e 30 minutos antes do início e do fim.
+            </p>
+          </div>
         </div>
 
         {semTelegram.length > 0 && (
