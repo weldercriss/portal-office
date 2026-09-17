@@ -312,20 +312,20 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
           <FormField label="Descrição (opcional)" htmlFor="convite-descricao">
             <Input id="convite-descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} maxLength={2000} />
           </FormField>
-        </div>
 
-        {edicao ? (
-          convite!.comMeet && (
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              Este convite já tem um link do Google Meet — não é possível remover depois de criado.
-            </p>
-          )
-        ) : (
-          <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-            <input type="checkbox" checked={comMeet} onChange={(e) => setComMeet(e.target.checked)} />
-            É uma reunião? Criar link do Google Meet
-          </label>
-        )}
+          <FormField label="Google Meet" htmlFor="convite-com-meet" hint={edicao ? 'Decidido na criação, não muda depois' : undefined}>
+            {edicao ? (
+              <p className="flex h-10 items-center text-sm text-[var(--color-text-secondary)]">
+                {convite!.comMeet ? 'Já tem link do Meet' : 'Sem link do Meet'}
+              </p>
+            ) : (
+              <label className="flex h-10 items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                <input id="convite-com-meet" type="checkbox" checked={comMeet} onChange={(e) => setComMeet(e.target.checked)} />
+                Criar link automaticamente
+              </label>
+            )}
+          </FormField>
+        </div>
 
         {edicao ? (
           <FormField
