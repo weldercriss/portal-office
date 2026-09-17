@@ -60,7 +60,13 @@ export function SubAreasDialog({ open, onOpenChange, groupId, groupNome }: SubAr
   const subAreas = subAreasQuery.data ?? [];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={`Áreas de ${groupNome}`} className="max-w-5xl">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`Áreas de ${groupNome}`}
+      className="max-w-5xl"
+      fitViewport
+    >
       <div className="flex flex-col gap-4">
         {subAreas.length === 0 ? (
           <p className="text-sm text-[var(--color-text-secondary)]">Nenhuma área cadastrada ainda.</p>

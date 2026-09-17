@@ -207,52 +207,67 @@ export default function SolicitacoesPage() {
         </Card>
       )}
 
-      <Dialog open={dialogAberto} onOpenChange={setDialogAberto} title="Nova solicitação">
+      <Dialog
+        open={dialogAberto}
+        onOpenChange={setDialogAberto}
+        title="Nova solicitação"
+        className="max-w-3xl"
+        fitViewport
+      >
         <form onSubmit={solicitar} className="flex flex-col gap-4">
-          <FormField label="Tipo" htmlFor="solicitacao-tipo">
-            <Select id="solicitacao-tipo" value={tipoId} onChange={(e) => setTipoId(e.target.value)} required>
-              <option value="">Selecione um tipo</option>
-              {tiposDisponiveis.map((tipo) => (
-                <option key={tipo.id} value={tipo.id}>
-                  {tipo.nome}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-          <FormField label="Data de início" htmlFor="solicitacao-inicio">
-            <Input
-              id="solicitacao-inicio"
-              type="date"
-              value={dataInicio}
-              onChange={(e) => setDataInicio(e.target.value)}
-              required
-            />
-          </FormField>
-          <FormField label="Data de fim (opcional)" htmlFor="solicitacao-fim">
-            <Input id="solicitacao-fim" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
-          </FormField>
-          <FormField label="Descrição (opcional)" htmlFor="solicitacao-descricao">
-            <Input id="solicitacao-descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
-          </FormField>
-
-          {tipoSelecionado?.usaFormulario ? (
-            <CamposFormularioForm
-              campos={tipoSelecionado.camposFormulario ?? []}
-              valores={respostasFormulario}
-              onChangeValor={(campoId, valor) => setRespostasFormulario((atual) => ({ ...atual, [campoId]: valor }))}
-              arquivos={arquivosFormulario}
-              onChangeArquivo={(campoId, arquivo) => setArquivosFormulario((atual) => ({ ...atual, [campoId]: arquivo }))}
-            />
-          ) : (
-            <FormField label="Anexo — imagem ou PDF (opcional)" htmlFor="solicitacao-anexo" error={erro ?? undefined}>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+            <FormField label="Tipo" htmlFor="solicitacao-tipo">
+              <Select id="solicitacao-tipo" value={tipoId} onChange={(e) => setTipoId(e.target.value)} required>
+                <option value="">Selecione um tipo</option>
+                {tiposDisponiveis.map((tipo) => (
+                  <option key={tipo.id} value={tipo.id}>
+                    {tipo.nome}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label="Data de início" htmlFor="solicitacao-inicio">
               <Input
-                id="solicitacao-anexo"
-                type="file"
-                accept={ANEXO_ACCEPT}
-                onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+                id="solicitacao-inicio"
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                required
               />
             </FormField>
-          )}
+            <FormField label="Data de fim (opcional)" htmlFor="solicitacao-fim">
+              <Input id="solicitacao-fim" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+            </FormField>
+            <FormField label="Descrição (opcional)" htmlFor="solicitacao-descricao">
+              <Input id="solicitacao-descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+            </FormField>
+
+            {tipoSelecionado?.usaFormulario ? (
+              <div className="sm:col-span-2">
+                <CamposFormularioForm
+                  campos={tipoSelecionado.camposFormulario ?? []}
+                  valores={respostasFormulario}
+                  onChangeValor={(campoId, valor) => setRespostasFormulario((atual) => ({ ...atual, [campoId]: valor }))}
+                  arquivos={arquivosFormulario}
+                  onChangeArquivo={(campoId, arquivo) => setArquivosFormulario((atual) => ({ ...atual, [campoId]: arquivo }))}
+                />
+              </div>
+            ) : (
+              <FormField
+                label="Anexo — imagem ou PDF (opcional)"
+                htmlFor="solicitacao-anexo"
+                error={erro ?? undefined}
+                className="sm:col-span-2"
+              >
+                <Input
+                  id="solicitacao-anexo"
+                  type="file"
+                  accept={ANEXO_ACCEPT}
+                  onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+                />
+              </FormField>
+            )}
+          </div>
           {tipoSelecionado?.usaFormulario && erro && <p className="text-xs text-[var(--color-danger)]">{erro}</p>}
 
           <FormActions>

@@ -374,7 +374,8 @@ export default function SolicitacoesAdminPage() {
         open={dialogAberto}
         onOpenChange={setDialogAberto}
         title={emEdicao ? 'Editar solicitação' : 'Nova solicitação'}
-        className="max-w-2xl"
+        className="max-w-3xl"
+        fitViewport
       >
         <form onSubmit={salvar} className="flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">

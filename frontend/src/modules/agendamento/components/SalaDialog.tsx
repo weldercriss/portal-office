@@ -79,7 +79,13 @@ export function SalaDialog({ open, onOpenChange, sala, onSaved }: SalaDialogProp
 
   return (
     // Largo e em linha: a semana inteira precisa caber sem rolagem.
-    <Dialog open={open} onOpenChange={onOpenChange} title={sala ? 'Editar sala' : 'Nova sala'} className="max-w-4xl">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={sala ? 'Editar sala' : 'Nova sala'}
+      className="max-w-4xl"
+      fitViewport
+    >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid gap-4 sm:grid-cols-4">
           <FormField label="Nome" htmlFor="sala-nome" className="sm:col-span-2">

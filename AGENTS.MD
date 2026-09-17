@@ -93,7 +93,8 @@ reorganizar nada existente:
   banco local.
 - `AI/SKILLS/FRONTEND/` — React: organização de módulo, TanStack Query,
   cliente HTTP centralizado, componentes/feedback (Dialog), permissões nas
-  rotas e como rodar o frontend localmente.
+  rotas, layout horizontal de telas/formulários (regra "tela-horizontal")
+  e como rodar o frontend localmente.
 - `AI/SKILLS/TESTING/` — Jest e Vitest/Testing Library: padrão de cada
   ferramenta, prioridades de cobertura e o checklist de fim de tarefa.
 

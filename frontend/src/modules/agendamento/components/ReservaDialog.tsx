@@ -149,6 +149,7 @@ export function ReservaDialog({ open, onOpenChange, salas, reserva, dataPadrao, 
       onOpenChange={onOpenChange}
       title={reserva ? 'Editar reserva' : 'Nova reserva'}
       className="max-w-4xl"
+      fitViewport
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -311,26 +312,30 @@ export function ReservaDialog({ open, onOpenChange, salas, reserva, dataPadrao, 
           </p>
         </div>
 
-        {semTelegram.map(({ usuario, papel }) => (
-          <FormField
-            key={usuario.id}
-            label={`@usuário do Telegram do ${papel}`}
-            htmlFor={`reserva-telegram-${usuario.id}`}
-            hint={
-              telegramUsernames[usuario.id]?.trim()
-                ? 'Salvo no cadastro dele ao confirmar.'
-                : 'Ele ainda não tem @usuário cadastrado — sem isso o bot não sabe pra quem escrever. Pode deixar em branco e seguir sem o aviso.'
-            }
-          >
-            <Input
-              id={`reserva-telegram-${usuario.id}`}
-              value={telegramUsernames[usuario.id] ?? ''}
-              onChange={(e) => setTelegramUsernames((atual) => ({ ...atual, [usuario.id]: e.target.value }))}
-              placeholder="@usuario"
-              maxLength={80}
-            />
-          </FormField>
-        ))}
+        {semTelegram.length > 0 && (
+          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+            {semTelegram.map(({ usuario, papel }) => (
+              <FormField
+                key={usuario.id}
+                label={`@usuário do Telegram do ${papel}`}
+                htmlFor={`reserva-telegram-${usuario.id}`}
+                hint={
+                  telegramUsernames[usuario.id]?.trim()
+                    ? 'Salvo no cadastro dele ao confirmar.'
+                    : 'Ele ainda não tem @usuário cadastrado — sem isso o bot não sabe pra quem escrever. Pode deixar em branco e seguir sem o aviso.'
+                }
+              >
+                <Input
+                  id={`reserva-telegram-${usuario.id}`}
+                  value={telegramUsernames[usuario.id] ?? ''}
+                  onChange={(e) => setTelegramUsernames((atual) => ({ ...atual, [usuario.id]: e.target.value }))}
+                  placeholder="@usuario"
+                  maxLength={80}
+                />
+              </FormField>
+            ))}
+          </div>
+        )}
 
         {erro && <p className="text-sm text-[var(--color-danger)]">{erro}</p>}
 
