@@ -39,6 +39,7 @@ const CONVITE_NOVO: ConviteAgenda = {
   criadoPor: { id: 'admin1', nome: 'Admin' },
   criadoEm: '2026-09-15T00:00:00.000Z',
   modo: 'EVENTO_COM_CONVIDADOS',
+  comMeet: true,
   statusEvento: 'ENVIADO',
   organizadorEmail: 'admin@empresa.com',
   enviadoEm: '2026-09-15T00:05:00.000Z',

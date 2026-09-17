@@ -77,6 +77,8 @@ export interface ConviteAgenda {
   criadoEm: string;
   destinatarios: ConviteAgendaDestinatario[];
   modo: ConviteAgendaModo;
+  /** Decidido na criação; edição não muda se o evento pede link do Google Meet. */
+  comMeet: boolean;
   statusEvento: ConviteAgendaEventoStatus | null;
   organizadorEmail: string | null;
   enviadoEm: string | null;
@@ -91,6 +93,8 @@ export interface CreateConviteAgendaInput {
   inicio: string;
   fim: string;
   destinatarioEmails: string[];
+  /** Padrão true (o evento pede link do Google Meet). Não editável depois de criado. */
+  comMeet?: boolean;
 }
 
 /** Destinatários não mudam aqui — só os dados do evento. */

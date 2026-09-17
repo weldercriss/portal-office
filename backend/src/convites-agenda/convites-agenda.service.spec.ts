@@ -38,6 +38,7 @@ describe('ConvitesAgendaService', () => {
     criadoPorId: 'admin1',
     criadoEm: new Date(),
     modo: 'EVENTO_COM_CONVIDADOS' as const,
+    comMeet: true,
   };
 
   let service: ConvitesAgendaService;
@@ -173,6 +174,38 @@ describe('ConvitesAgendaService', () => {
       expect(prismaMock.conviteAgendaEvento.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'c1' }, data: expect.objectContaining({ statusEvento: 'ENVIADO', eventId: 'evento-google-1' }) }),
       );
+    });
+
+    it('pede link do Google Meet por padrão', async () => {
+      prismaMock.user.findMany.mockResolvedValue([]);
+
+      await service.criar(
+        { titulo: 'Kickoff', inicio: '2026-10-01T14:00:00.000Z', fim: '2026-10-01T15:00:00.000Z', destinatarioEmails: ['ana@empresa.com'] },
+        'admin1',
+      );
+
+      expect(txMock.conviteAgendaEvento.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ comMeet: true }) }));
+      expect(calendarMock.criarComConvidados).toHaveBeenCalledWith(
+        'admin1',
+        'primary',
+        expect.any(String),
+        expect.objectContaining({ conferenceData: { createRequest: { requestId: 'c1', conferenceSolutionKey: { type: 'hangoutsMeet' } } } }),
+        'c1',
+      );
+    });
+
+    it('não pede Meet quando comMeet é false', async () => {
+      prismaMock.user.findMany.mockResolvedValue([]);
+      txMock.conviteAgendaEvento.create.mockResolvedValueOnce({ ...CONVITE_NOVO, comMeet: false });
+
+      await service.criar(
+        { titulo: 'Almoço', inicio: '2026-10-01T14:00:00.000Z', fim: '2026-10-01T15:00:00.000Z', destinatarioEmails: ['ana@empresa.com'], comMeet: false },
+        'admin1',
+      );
+
+      expect(txMock.conviteAgendaEvento.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ comMeet: false }) }));
+      const dadosEnviados = calendarMock.criarComConvidados.mock.calls[0][3];
+      expect(dadosEnviados.conferenceData).toBeUndefined();
     });
 
     it('marca FALHA sem derrubar a criação local quando o Google recusa', async () => {

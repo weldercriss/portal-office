@@ -34,7 +34,11 @@ describe('GoogleCalendarClient — convites por e-mail', () => {
 
       expect(id).toBe('ev1');
       expect(requestMock).toHaveBeenCalledWith(
-        expect.objectContaining({ method: 'POST', params: { sendUpdates: 'all' }, data: expect.objectContaining({ id: 'ev1', attendees: evento.attendees }) }),
+        expect.objectContaining({
+          method: 'POST',
+          params: { sendUpdates: 'all', conferenceDataVersion: 1 },
+          data: expect.objectContaining({ id: 'ev1', attendees: evento.attendees }),
+        }),
       );
     });
 
@@ -48,7 +52,7 @@ describe('GoogleCalendarClient — convites por e-mail', () => {
 
       expect(id).toBe('ev1');
       expect(requestMock).toHaveBeenLastCalledWith(
-        expect.objectContaining({ method: 'PATCH', params: { sendUpdates: 'all' } }),
+        expect.objectContaining({ method: 'PATCH', params: { sendUpdates: 'all', conferenceDataVersion: 1 } }),
       );
     });
 

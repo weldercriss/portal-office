@@ -19,6 +19,7 @@ interface ConviteBase {
   local: string | null;
   inicio: Date;
   fim: Date;
+  comMeet: boolean;
 }
 
 interface DestinatarioLegado {
@@ -175,6 +176,7 @@ export class ConvitesAgendaService {
           local: dto.local?.trim() || null,
           inicio: new Date(dto.inicio),
           fim: new Date(dto.fim),
+          comMeet: dto.comMeet ?? true,
           criadoPorId,
           modo: ConviteAgendaModo.EVENTO_COM_CONVIDADOS,
           statusEvento: ConviteAgendaEventoStatus.PENDENTE,
@@ -347,6 +349,9 @@ export class ConvitesAgendaService {
       guestsCanModify: false,
       guestsCanSeeOtherGuests: false,
       extendedProperties: { private: { conviteAgendaId: convite.id, origem: 'portal-backoffice' } },
+      ...(convite.comMeet && {
+        conferenceData: { createRequest: { requestId: convite.id, conferenceSolutionKey: { type: 'hangoutsMeet' as const } } },
+      }),
     };
   }
 
@@ -438,6 +443,9 @@ export class ConvitesAgendaService {
       start: { dateTime: convite.inicio.toISOString() },
       end: { dateTime: convite.fim.toISOString() },
       extendedProperties: { private: { conviteAgendaId: convite.id, origem: 'portal-backoffice' } },
+      ...(convite.comMeet && {
+        conferenceData: { createRequest: { requestId: convite.id, conferenceSolutionKey: { type: 'hangoutsMeet' as const } } },
+      }),
     };
   }
 

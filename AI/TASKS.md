@@ -192,6 +192,14 @@ completo da implementação em
       `atualizarComConvidados`, `cancelarComConvidados`, `obterComConvidados`,
       `consultarLivreOcupado`), `ConvitesAgendaService`/`Controller`
       reescritos, testes de backend e frontend, documentação.
+- [x] Google Meet opcional por convite (`comMeet`, checkbox "É uma reunião?"
+      na criação) — usuário reportou que o evento criado não virava reunião
+      do Meet; detalhe em
+      [SESSIONS/17-09-2026.md](SESSIONS/17-09-2026.md#google-meet-opcional-nos-convites-de-agenda).
+      Migration `20260917130000_convites_agenda_com_meet` escrita à mão
+      (sem Postgres acessível neste ambiente para `prisma migrate dev`) —
+      **pendência operacional: rodar `prisma migrate deploy` no ambiente com
+      o banco antes do próximo deploy.**
 - [ ] **Fase 0 do plano — prova manual, não executada.** Exige uma conta real
       do Google Workspace e dois destinatários de teste (um do domínio sem
       conexão com o portal, outro sem cadastro algum) para confirmar entrega,

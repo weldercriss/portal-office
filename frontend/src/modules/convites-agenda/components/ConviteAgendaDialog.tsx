@@ -87,6 +87,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
   const [descricao, setDescricao] = useState('');
   const [inicio, setInicio] = useState('');
   const [fim, setFim] = useState('');
+  const [comMeet, setComMeet] = useState(true);
   const [busca, setBusca] = useState('');
   const [colaboradoresSelecionados, setColaboradoresSelecionados] = useState<Set<string>>(new Set());
   const [emailsManuais, setEmailsManuais] = useState<string[]>([]);
@@ -102,6 +103,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
     setDescricao(convite?.descricao ?? '');
     setInicio(convite ? paraDatetimeLocal(convite.inicio) : '');
     setFim(convite ? paraDatetimeLocal(convite.fim) : '');
+    setComMeet(convite?.comMeet ?? true);
     setBusca('');
     setColaboradoresSelecionados(new Set());
     setEmailsManuais([]);
@@ -218,6 +220,7 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
           inicio: new Date(inicio).toISOString(),
           fim: new Date(fim).toISOString(),
           destinatarioEmails: emails,
+          comMeet,
         });
       }
       onOpenChange(false);
@@ -310,6 +313,19 @@ export function ConviteAgendaDialog({ open, onOpenChange, convite }: ConviteAgen
             <Input id="convite-descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} maxLength={2000} />
           </FormField>
         </div>
+
+        {edicao ? (
+          convite!.comMeet && (
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Este convite já tem um link do Google Meet — não é possível remover depois de criado.
+            </p>
+          )
+        ) : (
+          <label className="flex w-fit cursor-pointer items-center gap-2 text-sm">
+            <input type="checkbox" className="h-4 w-4" checked={comMeet} onChange={(e) => setComMeet(e.target.checked)} />
+            É uma reunião? Criar link do Google Meet
+          </label>
+        )}
 
         {edicao ? (
           <FormField

@@ -19,6 +19,8 @@ export interface EventoAgenda {
   status?: string;
   extendedProperties?: { private?: Record<string, string> };
   attendees?: { email: string }[];
+  /** Presente = pedir um link do Google Meet. `requestId` estável mantém o mesmo link entre edições. */
+  conferenceData?: { createRequest: { requestId: string; conferenceSolutionKey: { type: 'hangoutsMeet' } } };
   guestsCanInviteOthers?: boolean;
   guestsCanModify?: boolean;
   guestsCanSeeOtherGuests?: boolean;
@@ -140,6 +142,7 @@ export class GoogleCalendarClient {
       const resposta = await cliente.request<{ id: string }>({
         url: this.url(calendarId),
         method: 'POST',
+        params: { conferenceDataVersion: 1 },
         data: { ...evento, id: eventId },
       });
       return resposta.data.id;
@@ -148,6 +151,7 @@ export class GoogleCalendarClient {
       await cliente.request({
         url: this.url(calendarId, eventId),
         method: 'PATCH',
+        params: { conferenceDataVersion: 1 },
         data: { ...evento, status: 'confirmed' },
       });
       return eventId;
@@ -158,7 +162,12 @@ export class GoogleCalendarClient {
   async atualizar(userId: string, calendarId: string, eventId: string, evento: EventoAgenda): Promise<boolean> {
     const cliente = await this.cliente(userId);
     try {
-      await cliente.request({ url: this.url(calendarId, eventId), method: 'PATCH', data: evento });
+      await cliente.request({
+        url: this.url(calendarId, eventId),
+        method: 'PATCH',
+        params: { conferenceDataVersion: 1 },
+        data: evento,
+      });
       return true;
     } catch (erro) {
       if (this.sumiu(erro)) return false;
@@ -228,7 +237,7 @@ export class GoogleCalendarClient {
       const resposta = await cliente.request<{ id: string }>({
         url: this.url(calendarId),
         method: 'POST',
-        params: { sendUpdates: 'all' },
+        params: { sendUpdates: 'all', conferenceDataVersion: 1 },
         data: { ...evento, id: eventId },
       });
       return resposta.data.id;
@@ -243,7 +252,7 @@ export class GoogleCalendarClient {
       await cliente.request({
         url: this.url(calendarId, eventId),
         method: 'PATCH',
-        params: { sendUpdates: 'all' },
+        params: { sendUpdates: 'all', conferenceDataVersion: 1 },
         data: { ...evento, status: 'confirmed' },
       });
       return eventId;
@@ -257,7 +266,7 @@ export class GoogleCalendarClient {
       await cliente.request({
         url: this.url(calendarId, eventId),
         method: 'PATCH',
-        params: { sendUpdates: 'all' },
+        params: { sendUpdates: 'all', conferenceDataVersion: 1 },
         data: evento,
       });
       return true;

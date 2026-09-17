@@ -159,6 +159,14 @@ reservas):
   do evento é determinístico (`eventIdDeterministico`); em 409 o cliente
   confere `extendedProperties.private.conviteAgendaId` antes de atualizar,
   pra nunca sobrescrever o evento de outro convite numa colisão.
+- `ConviteAgendaEvento.comMeet` (checkbox "É uma reunião?" no diálogo de
+  criação, default `true`, imutável depois de criado) decide se o evento
+  pede um link do Google Meet: presente, `montarEventoCentral`/
+  `montarEventoLegado` mandam `conferenceData.createRequest` com
+  `requestId` = o próprio `convite.id` (estável entre edições, então o link
+  não muda) e o `GoogleCalendarClient` passa `conferenceDataVersion: 1` nas
+  chamadas de criar/atualizar (com e sem convidados) — sem esse parâmetro o
+  Google ignora silenciosamente o `conferenceData` do corpo.
 - `PATCH /convites-agenda/:id` (não muda destinatários) só chama o Google
   quando já existe `eventId`; sem envio prévio, atualiza só o registro local.
 - `POST /convites-agenda/:id/reenviar` só age quando `statusEvento=FALHA`,

@@ -668,6 +668,10 @@ model ConviteAgendaEvento {
 
   modo ConviteAgendaModo @default(COPIAS_INDIVIDUAIS)
 
+  /// Decidido na criação do convite; não muda em edições. Controla se o
+  /// evento pede um link do Google Meet (conferenceData) ao Google.
+  comMeet Boolean @default(true)
+
   // --- Campos do evento único (modo EVENTO_COM_CONVIDADOS) ------------------
   statusEvento             ConviteAgendaEventoStatus?
   /// Snapshot da identidade que organizou o evento no Google. Uma troca de
