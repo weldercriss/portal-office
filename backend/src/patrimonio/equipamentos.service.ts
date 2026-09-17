@@ -51,18 +51,35 @@ export interface FiltrosEquipamento {
   all?: boolean;
 }
 
+export interface UsuarioAtual {
+  id: string;
+  role: string;
+}
+
 /** Valor vindo da query: desconhecido vira filtro nenhum, não erro 500. */
 function enumValido<T extends Record<string, string>>(mapa: T, valor: string | undefined): T[keyof T] | undefined {
   return valor && valor in mapa ? (valor as T[keyof T]) : undefined;
+}
+
+/**
+ * Some a identidade de quem está com o item pra quem consulta sem ser ADMIN
+ * nem o próprio colaborador — a lista de inventário é liberada pela rotina,
+ * mas o nome de outra pessoa não é assunto de quem só está vendo o estoque.
+ */
+export function redigirColaborador<
+  T extends { colaboradorId: string; colaborador: { id: string; nome: string; email: string } },
+>(alocacao: T, usuarioAtual?: UsuarioAtual): T {
+  if (!usuarioAtual || usuarioAtual.role === 'ADMIN' || alocacao.colaboradorId === usuarioAtual.id) return alocacao;
+  return { ...alocacao, colaboradorId: '', colaborador: { ...alocacao.colaborador, id: '', nome: '', email: '' } };
 }
 
 @Injectable()
 export class EquipamentosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(filtros: FiltrosEquipamento = {}) {
+  async findAll(filtros: FiltrosEquipamento = {}, usuarioAtual?: UsuarioAtual) {
     const termo = filtros.busca?.trim();
-    return this.prisma.equipamento.findMany({
+    const equipamentos = await this.prisma.equipamento.findMany({
       where: {
         ativo: filtros.all ? undefined : true,
         tipoId: filtros.tipoId,
@@ -87,12 +104,19 @@ export class EquipamentosService {
       orderBy: [{ tipo: { nome: 'asc' } }, { numero: 'asc' }, { criadoEm: 'asc' }],
       include: EQUIPAMENTO_INCLUDE,
     });
+    return equipamentos.map((eq) => ({
+      ...eq,
+      alocacoes: eq.alocacoes.map((alocacao) => redigirColaborador(alocacao, usuarioAtual)),
+    }));
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, usuarioAtual?: UsuarioAtual) {
     const equipamento = await this.prisma.equipamento.findUnique({ where: { id }, include: EQUIPAMENTO_INCLUDE });
     if (!equipamento) throw new NotFoundException('Equipamento não encontrado');
-    return equipamento;
+    return {
+      ...equipamento,
+      alocacoes: equipamento.alocacoes.map((alocacao) => redigirColaborador(alocacao, usuarioAtual)),
+    };
   }
 
   /** Contadores por situação, para o cabeçalho do inventário. */

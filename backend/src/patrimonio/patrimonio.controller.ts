@@ -93,6 +93,7 @@ export class EquipamentosController {
 
   @Get()
   findAll(
+    @Req() req: Request,
     @Query('tipoId') tipoId?: string,
     @Query('status') status?: string,
     @Query('estado') estado?: string,
@@ -101,15 +102,18 @@ export class EquipamentosController {
     @Query('disponiveis') disponiveis?: string,
     @Query('all') all?: string,
   ) {
-    return this.equipamentosService.findAll({
-      tipoId,
-      status,
-      estado,
-      colaboradorId,
-      busca,
-      disponiveis: disponiveis === 'true',
-      all: all === 'true',
-    });
+    return this.equipamentosService.findAll(
+      {
+        tipoId,
+        status,
+        estado,
+        colaboradorId,
+        busca,
+        disponiveis: disponiveis === 'true',
+        all: all === 'true',
+      },
+      usuario(req),
+    );
   }
 
   /** Contadores por situação, para o cabeçalho do inventário. */
@@ -119,8 +123,8 @@ export class EquipamentosController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.equipamentosService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: Request) {
+    return this.equipamentosService.findOne(id, usuario(req));
   }
 
   @Post()
@@ -165,17 +169,21 @@ export class AlocacoesController {
 
   @Get()
   findAll(
+    @Req() req: Request,
     @Query('colaboradorId') colaboradorId?: string,
     @Query('equipamentoId') equipamentoId?: string,
     @Query('status') status?: string,
     @Query('ativas') ativas?: string,
   ) {
-    return this.alocacoesService.findAll({
-      colaboradorId,
-      equipamentoId,
-      status,
-      ativas: ativas === 'true',
-    });
+    return this.alocacoesService.findAll(
+      {
+        colaboradorId,
+        equipamentoId,
+        status,
+        ativas: ativas === 'true',
+      },
+      usuario(req),
+    );
   }
 
   /** O que está comigo hoje — visível a qualquer um com a rotina. */
@@ -188,8 +196,8 @@ export class AlocacoesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.alocacoesService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: Request) {
+    return this.alocacoesService.findOne(id, usuario(req));
   }
 
   @Post()
@@ -197,6 +205,24 @@ export class AlocacoesController {
   @Roles('ADMIN')
   create(@Body() dto: CreateAlocacaoDto, @Req() req: Request) {
     return this.alocacoesService.create(dto, usuario(req).id);
+  }
+
+  /**
+   * Anexa um termo único a vários registros — a entrega em lote pro mesmo
+   * colaborador (checkbox na tela de inventário) gera um registro por item,
+   * mas o documento assinado costuma ser um só pra todos.
+   */
+  @Post('termo-lote')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @UseInterceptors(FileInterceptor('termo', TERMO_MULTER_OPTIONS))
+  anexarTermoLote(@Body('ids') idsBrutos: string, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Envie o termo assinado');
+    const ids = (idsBrutos ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    return this.alocacoesService.anexarTermoLote(ids, file);
   }
 
   @Patch(':id')

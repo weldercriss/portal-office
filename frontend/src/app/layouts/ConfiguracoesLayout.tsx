@@ -8,6 +8,7 @@ const TABS = [
  // { to: '/configuracoes/vagas', label: 'Recrutamento' },
   { to: '/configuracoes/permissoes', label: 'Permissões' },
   { to: '/configuracoes/tipos-solicitacao', label: 'Tipos de solicitação' },
+  { to: '/configuracoes/tipos-equipamento', label: 'Tipos de equipamento' },
   { to: '/configuracoes/plantoes', label: 'Plantões' },
   { to: '/configuracoes/salas', label: 'Salas' },
   { to: '/configuracoes/telegram', label: 'Telegram' },

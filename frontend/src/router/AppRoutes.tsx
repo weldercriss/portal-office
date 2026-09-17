@@ -23,6 +23,8 @@ const SolicitacoesPage = lazy(() => import('../modules/solicitacoes/pages/Solici
 const SolicitacoesAdminPage = lazy(() => import('../modules/solicitacoes/pages/SolicitacoesAdminPage'));
 const TiposSolicitacaoAdminPage = lazy(() => import('../modules/tipos-solicitacao/pages/TiposSolicitacaoAdminPage'));
 const TiposPlantaoAdminPage = lazy(() => import('../modules/tipos-plantao/pages/TiposPlantaoAdminPage'));
+const PatrimonioPage = lazy(() => import('../modules/patrimonio/pages/PatrimonioPage'));
+const TiposEquipamentoAdminPage = lazy(() => import('../modules/patrimonio/pages/TiposEquipamentoAdminPage'));
 const TelegramConfigAdminPage = lazy(() => import('../modules/telegram-config/pages/TelegramConfigAdminPage'));
 const FichaColaboradorPage = lazy(() => import('../modules/colaboradores-rh/pages/FichaColaboradorPage'));
 const VagasAdminPage = lazy(() => import('../modules/recrutamento/pages/VagasAdminPage'));
@@ -98,6 +100,14 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/patrimonio"
+          element={
+            <ProtectedRoute requireRotina="patrimonio">
+              <PatrimonioPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/convites-agenda"
           element={
             <ProtectedRoute requireRole="ADMIN">
@@ -118,6 +128,7 @@ export function AppRoutes() {
           <Route path="departamentos" element={<DepartamentosAdminPage />} />
           <Route path="permissoes" element={<PermissoesAdminPage />} />
           <Route path="tipos-solicitacao" element={<TiposSolicitacaoAdminPage />} />
+          <Route path="tipos-equipamento" element={<TiposEquipamentoAdminPage />} />
           <Route path="salas" element={<SalasAdminPage />} />
           <Route path="plantoes" element={<TiposPlantaoAdminPage />} />
           <Route path="plantoes/turnos" element={<Navigate to="/configuracoes/plantoes" replace />} />

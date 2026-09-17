@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -217,6 +217,39 @@ describe('AlocacoesService', () => {
         termoCaminho: null,
       });
       await expect(service.update('al1', { status: 'ASSINADO' } as any)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('anexarTermoLote', () => {
+    const arquivo = { originalname: 'termo.pdf', filename: 'abc.pdf', mimetype: 'application/pdf' } as any;
+
+    it('aplica o mesmo termo a todos os registros do lote', async () => {
+      prismaMock.alocacaoEquipamento.findMany.mockResolvedValue([
+        { id: 'al1', status: 'ENTREGUE', termoCaminho: null },
+        { id: 'al2', status: 'PENDENTE', termoCaminho: null },
+      ]);
+
+      await service.anexarTermoLote(['al1', 'al2'], arquivo);
+
+      expect(prismaMock.alocacaoEquipamento.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['al1', 'al2'] } },
+        data: expect.objectContaining({ status: 'ASSINADO', termoNome: 'termo.pdf' }),
+      });
+    });
+
+    it('recusa quando algum id não existe', async () => {
+      prismaMock.alocacaoEquipamento.findMany.mockResolvedValue([{ id: 'al1', status: 'ENTREGUE', termoCaminho: null }]);
+      await expect(service.anexarTermoLote(['al1', 'al2'], arquivo)).rejects.toBeInstanceOf(NotFoundException);
+      expect(prismaMock.alocacaoEquipamento.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('recusa quando algum registro do lote já foi encerrado', async () => {
+      prismaMock.alocacaoEquipamento.findMany.mockResolvedValue([
+        { id: 'al1', status: 'ENTREGUE', termoCaminho: null },
+        { id: 'al2', status: 'DEVOLVIDO', termoCaminho: null },
+      ]);
+      await expect(service.anexarTermoLote(['al1', 'al2'], arquivo)).rejects.toBeInstanceOf(ConflictException);
+      expect(prismaMock.alocacaoEquipamento.updateMany).not.toHaveBeenCalled();
     });
   });
 });

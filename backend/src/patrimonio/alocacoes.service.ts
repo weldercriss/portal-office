@@ -5,7 +5,7 @@ import { join } from 'path';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAlocacaoDto, DevolverAlocacaoDto, UpdateAlocacaoDto } from './dto/alocacao.dto';
-import { STATUS_ALOCACAO_ATIVA } from './equipamentos.service';
+import { redigirColaborador, STATUS_ALOCACAO_ATIVA, UsuarioAtual } from './equipamentos.service';
 import { EquipamentosService } from './equipamentos.service';
 import { TERMO_DIR } from './termo.storage';
 
@@ -54,8 +54,8 @@ export class AlocacoesService {
     private readonly equipamentos: EquipamentosService,
   ) {}
 
-  findAll(filtros: FiltrosAlocacao = {}) {
-    return this.prisma.alocacaoEquipamento.findMany({
+  async findAll(filtros: FiltrosAlocacao = {}, usuarioAtual?: UsuarioAtual) {
+    const alocacoes = await this.prisma.alocacaoEquipamento.findMany({
       where: {
         colaboradorId: filtros.colaboradorId,
         equipamentoId: filtros.equipamentoId,
@@ -64,12 +64,13 @@ export class AlocacoesService {
       orderBy: [{ dataInicio: 'desc' }, { criadoEm: 'desc' }],
       include: ALOCACAO_INCLUDE,
     });
+    return alocacoes.map((alocacao) => redigirColaborador(alocacao, usuarioAtual));
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, usuarioAtual?: UsuarioAtual) {
     const alocacao = await this.prisma.alocacaoEquipamento.findUnique({ where: { id }, include: ALOCACAO_INCLUDE });
     if (!alocacao) throw new NotFoundException('Registro de equipamento não encontrado');
-    return alocacao;
+    return redigirColaborador(alocacao, usuarioAtual);
   }
 
   /**
@@ -274,6 +275,36 @@ export class AlocacoesService {
       },
       include: ALOCACAO_INCLUDE,
     });
+  }
+
+  /**
+   * Anexa um único termo assinado a vários registros de uma vez — a entrega de
+   * um lote de itens pro mesmo colaborador costuma sair num só documento
+   * físico, não um por item.
+   */
+  async anexarTermoLote(ids: string[], file: Express.Multer.File) {
+    if (ids.length === 0) throw new BadRequestException('Selecione ao menos um registro para anexar o termo');
+
+    const alocacoes = await this.prisma.alocacaoEquipamento.findMany({ where: { id: { in: ids } } });
+    if (alocacoes.length !== ids.length) throw new NotFoundException('Registro de equipamento não encontrado');
+    if (alocacoes.some((alocacao) => STATUS_ENCERRADOS.includes(alocacao.status))) {
+      throw new ConflictException('Este registro já foi encerrado');
+    }
+
+    await Promise.all(alocacoes.map((alocacao) => this.apagarArquivoTermo(alocacao.termoCaminho)));
+
+    await this.prisma.alocacaoEquipamento.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        termoNome: file.originalname,
+        termoCaminho: file.filename,
+        termoMimeType: file.mimetype,
+        termoEnviadoEm: new Date(),
+        status: AlocacaoStatus.ASSINADO,
+      },
+    });
+
+    return this.prisma.alocacaoEquipamento.findMany({ where: { id: { in: ids } }, include: ALOCACAO_INCLUDE });
   }
 
   /** Remover o termo desfaz o "assinado": o registro volta a estar entregue. */
