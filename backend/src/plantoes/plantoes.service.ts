@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SolicitacoesService } from '../solicitacoes/solicitacoes.service';
 import { CreatePlantaoDto, PlantaoStatusDto } from './dto/create-plantao.dto';
 import { UpdatePlantaoDto } from './dto/update-plantao.dto';
+import { gerarDatasRecorrencia, MAX_OCORRENCIAS_SERIE } from './recorrencia.util';
 
 const PLANTAO_INCLUDE = {
   user: { select: { id: true, nome: true, email: true } },
@@ -27,59 +28,12 @@ export interface FiltrosPlantao {
   to?: string;
 }
 
-const MAX_OCORRENCIAS_SERIE = 366;
-
 function formatarData(data: Date) {
   return data.toISOString().slice(0, 10);
 }
 
 function formatarDataBr(data: Date) {
   return data.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-}
-
-/**
- * Gera as datas (YYYY-MM-DD) de uma recorrência. Usa exclusivamente métodos UTC pra ficar
- * consistente com `formatarData`/`formatarDataBr` e o `.slice(0,10)` do frontend — misturar
- * métodos locais aqui deslocaria a série em ±1 dia em servidores fora de UTC+0.
- */
-function gerarDatasRecorrencia(
-  regra: RegraRecorrenciaPlantao,
-  dataInicioStr: string,
-  dataFimStr: string | undefined,
-  diasSemana: number[] | undefined,
-): string[] {
-  if (regra === RegraRecorrenciaPlantao.UNICO) return [dataInicioStr];
-
-  const inicio = new Date(dataInicioStr);
-  const fim = new Date(dataFimStr as string);
-  const datas: string[] = [];
-
-  if (regra === RegraRecorrenciaPlantao.SEMANAL) {
-    const dias = new Set(diasSemana ?? []);
-    const cursor = new Date(inicio);
-    while (cursor.getTime() <= fim.getTime() && datas.length <= MAX_OCORRENCIAS_SERIE) {
-      if (dias.has(cursor.getUTCDay())) datas.push(cursor.toISOString().slice(0, 10));
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
-    }
-  } else if (regra === RegraRecorrenciaPlantao.MENSAL) {
-    const diaAlvo = inicio.getUTCDate();
-    let ano = inicio.getUTCFullYear();
-    let mes = inicio.getUTCMonth();
-    while (datas.length <= MAX_OCORRENCIAS_SERIE) {
-      const ultimoDiaDoMes = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
-      const dia = Math.min(diaAlvo, ultimoDiaDoMes);
-      const candidato = new Date(Date.UTC(ano, mes, dia));
-      if (candidato.getTime() > fim.getTime()) break;
-      if (candidato.getTime() >= inicio.getTime()) datas.push(candidato.toISOString().slice(0, 10));
-      mes += 1;
-      if (mes > 11) {
-        mes = 0;
-        ano += 1;
-      }
-    }
-  }
-
-  return datas;
 }
 
 @Injectable()
@@ -135,14 +89,17 @@ export class PlantoesService {
 
     const tipoPlantao = await this.validarTipo(dto.tipoPlantaoId);
 
-    if (tipoPlantao.regra !== RegraRecorrenciaPlantao.UNICO && !dto.dataFim) {
-      throw new BadRequestException('Informe a data final da recorrência');
-    }
-    if (tipoPlantao.regra === RegraRecorrenciaPlantao.SEMANAL && !dto.diasSemana?.length) {
+    // Sem dataFim é sempre uma ocorrência avulsa (mesmo pra tipo recorrente — cobre
+    // reposição/cobertura extra); a recorrência automática de fato vive no TipoPlantao,
+    // mantida pelo PlantoesRecorrenciaWorker.
+    const isSerie = !!dto.dataFim;
+    if (isSerie && tipoPlantao.regra === RegraRecorrenciaPlantao.SEMANAL && !dto.diasSemana?.length) {
       throw new BadRequestException('Selecione ao menos um dia da semana para a recorrência semanal');
     }
 
-    const datas = gerarDatasRecorrencia(tipoPlantao.regra, dto.data, dto.dataFim, dto.diasSemana);
+    const datas = isSerie
+      ? gerarDatasRecorrencia(tipoPlantao.regra, dto.data, dto.dataFim, dto.diasSemana)
+      : [dto.data];
     if (datas.length === 0) {
       throw new BadRequestException('Nenhuma data foi gerada para esta recorrência');
     }
@@ -165,8 +122,6 @@ export class PlantoesService {
         );
       }
     }
-
-    const isSerie = tipoPlantao.regra !== RegraRecorrenciaPlantao.UNICO;
 
     const plantoes = await this.prisma.$transaction(async (tx) => {
       let serieId: string | null = null;
@@ -242,8 +197,15 @@ export class PlantoesService {
   }
 
   async remove(id: string) {
-    await this.obterOuFalhar(id);
-    await this.prisma.plantao.delete({ where: { id } });
+    const plantao = await this.obterOuFalhar(id);
+    // Plantão de série vira CANCELADO em vez de apagado: um delete físico seria
+    // "ressuscitado" pelo PlantoesRecorrenciaWorker na próxima geração, porque a data
+    // voltaria a aparecer sem Plantao associado. Avulso (sem série) apaga de verdade.
+    if (plantao.serieId) {
+      await this.prisma.plantao.update({ where: { id }, data: { status: 'CANCELADO' } });
+    } else {
+      await this.prisma.plantao.delete({ where: { id } });
+    }
     // O vínculo com o evento sobrevive ao plantão, então a agenda ainda é limpa.
     await this.agendaGoogleService.enfileirar([id]);
     return { ok: true };
@@ -258,6 +220,28 @@ export class PlantoesService {
     await this.prisma.plantaoSerie.delete({ where: { id: serieId } });
     await this.agendaGoogleService.enfileirar(serie.plantoes.map((plantao) => plantao.id));
     return { ok: true, removidos: serie._count.plantoes };
+  }
+
+  /** Cancela essa e as próximas ocorrências da série, e fecha a série nessa data (o worker não gera mais nada depois disso). */
+  async encerrarSerieAPartir(serieId: string, dataStr: string) {
+    const serie = await this.prisma.plantaoSerie.findUnique({
+      where: { id: serieId },
+      include: { plantoes: { where: { data: { gte: new Date(dataStr) }, status: { not: 'CANCELADO' } }, select: { id: true } } },
+    });
+    if (!serie) throw new NotFoundException('Série de plantões não encontrada');
+
+    const diaAnterior = new Date(dataStr);
+    diaAnterior.setUTCDate(diaAnterior.getUTCDate() - 1);
+
+    await this.prisma.$transaction([
+      this.prisma.plantao.updateMany({
+        where: { id: { in: serie.plantoes.map((plantao) => plantao.id) } },
+        data: { status: 'CANCELADO' },
+      }),
+      this.prisma.plantaoSerie.update({ where: { id: serieId }, data: { dataFim: diaAnterior } }),
+    ]);
+    await this.agendaGoogleService.enfileirar(serie.plantoes.map((plantao) => plantao.id));
+    return { ok: true, cancelados: serie.plantoes.length };
   }
 
   async findTrocas(userId: string, role: string) {

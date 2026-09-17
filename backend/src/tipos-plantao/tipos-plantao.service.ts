@@ -1,4 +1,5 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { RegraRecorrenciaPlantao } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTipoPlantaoDto } from './dto/create-tipo-plantao.dto';
 import { UpdateTipoPlantaoDto } from './dto/update-tipo-plantao.dto';
@@ -14,14 +15,22 @@ export class TiposPlantaoService {
     });
   }
 
-  create(dto: CreateTipoPlantaoDto) {
-    return this.prisma.tipoPlantao.create({ data: dto });
+  async create(dto: CreateTipoPlantaoDto, criadoPorId: string) {
+    this.validarDiasSemana(dto.regra, dto.diasSemana);
+    return this.prisma.tipoPlantao.create({ data: { ...dto, criadoPorId } });
   }
 
-  async update(id: string, dto: UpdateTipoPlantaoDto) {
+  async update(id: string, dto: UpdateTipoPlantaoDto, criadoPorId: string) {
     const tipo = await this.prisma.tipoPlantao.findUnique({ where: { id } });
     if (!tipo) throw new NotFoundException('Tipo de plantão não encontrado');
-    return this.prisma.tipoPlantao.update({ where: { id }, data: dto });
+    this.validarDiasSemana(dto.regra ?? tipo.regra, dto.diasSemana ?? tipo.diasSemana);
+    return this.prisma.tipoPlantao.update({ where: { id }, data: { ...dto, criadoPorId } });
+  }
+
+  private validarDiasSemana(regra: RegraRecorrenciaPlantao, diasSemana?: number[]) {
+    if (regra === RegraRecorrenciaPlantao.SEMANAL && !diasSemana?.length) {
+      throw new BadRequestException('Selecione ao menos um dia da semana para a recorrência semanal');
+    }
   }
 
   async remove(id: string) {

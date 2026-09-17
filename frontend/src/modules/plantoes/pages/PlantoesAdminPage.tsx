@@ -22,14 +22,19 @@ import { useTiposPlantao } from '../../tipos-plantao/hooks/useTiposPlantao';
 import {
   useCreatePlantao,
   useDeletePlantao,
+  useEncerrarSerieAPartir,
   usePlantoes,
   useRemoveSerie,
   useUpdatePlantao,
 } from '../hooks/usePlantoes';
 import type { Plantao, PlantaoStatus } from '../types/plantao.types';
 
-const STATUS_LABEL: Record<PlantaoStatus, string> = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado' };
-const DIAS_SEMANA_LABEL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const STATUS_LABEL: Record<PlantaoStatus, string> = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', CANCELADO: 'Cancelado' };
+const STATUS_TONE: Record<PlantaoStatus, 'success' | 'neutral' | 'danger'> = {
+  PUBLICADO: 'success',
+  RASCUNHO: 'neutral',
+  CANCELADO: 'danger',
+};
 
 export default function PlantoesAdminPage() {
   const navigate = useNavigate();
@@ -40,6 +45,7 @@ export default function PlantoesAdminPage() {
   const updateMutation = useUpdatePlantao();
   const deleteMutation = useDeletePlantao();
   const removeSerieMutation = useRemoveSerie();
+  const encerrarSerieMutation = useEncerrarSerieAPartir();
 
   const [busca, setBusca] = useState('');
   const [dialogAberto, setDialogAberto] = useState(false);
@@ -48,19 +54,14 @@ export default function PlantoesAdminPage() {
   const [data, setData] = useState('');
   const [userId, setUserId] = useState('');
   const [tipoPlantaoId, setTipoPlantaoId] = useState('');
-  const [dataFim, setDataFim] = useState('');
-  const [diasSemana, setDiasSemana] = useState<number[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [erroLista, setErroLista] = useState<string | null>(null);
   const [serieParaExcluir, setSerieParaExcluir] = useState<{ serieId: string; quantidade: number } | null>(null);
+  const [serieParaEncerrar, setSerieParaEncerrar] = useState<{ serieId: string; data: string } | null>(null);
 
   const usuarios = usuariosQuery.data ?? [];
   const tiposPlantao = tiposPlantaoQuery.data ?? [];
   const plantonistas = usuarios.filter((u) => u.ativo && u.group?.fazPlantao);
-
-  const tipoSelecionado = tiposPlantao.find((t) => t.id === tipoPlantaoId);
-  const mostrarCamposRecorrencia = !emEdicao && !!tipoSelecionado && tipoSelecionado.regra !== 'UNICO';
-  const mostrarDiasSemana = mostrarCamposRecorrencia && tipoSelecionado?.regra === 'SEMANAL';
 
   const plantoesFiltrados = useMemo(() => {
     const plantoes = plantoesQuery.data ?? [];
@@ -79,8 +80,6 @@ export default function PlantoesAdminPage() {
     setData('');
     setUserId('');
     setTipoPlantaoId('');
-    setDataFim('');
-    setDiasSemana([]);
     setErro(null);
     setDialogAberto(true);
   }
@@ -91,28 +90,15 @@ export default function PlantoesAdminPage() {
     setData(plantao.data.slice(0, 10));
     setUserId(plantao.userId ?? '');
     setTipoPlantaoId(plantao.tipoPlantaoId ?? '');
-    setDataFim('');
-    setDiasSemana([]);
     setErro(null);
     setDialogAberto(true);
-  }
-
-  function alternarDiaSemana(dia: number) {
-    setDiasSemana((atual) => (atual.includes(dia) ? atual.filter((d) => d !== dia) : [...atual, dia].sort()));
   }
 
   async function salvar(status: PlantaoStatus, event?: FormEvent) {
     event?.preventDefault();
     setErro(null);
     try {
-      const input = {
-        nome: nome || undefined,
-        data,
-        userId: userId || null,
-        status,
-        tipoPlantaoId,
-        ...(mostrarCamposRecorrencia ? { dataFim, diasSemana: mostrarDiasSemana ? diasSemana : undefined } : {}),
-      };
+      const input = { nome: nome || undefined, data, userId: userId || null, status, tipoPlantaoId };
       if (emEdicao) {
         await updateMutation.mutateAsync({ id: emEdicao.id, input });
       } else {
@@ -142,6 +128,17 @@ export default function PlantoesAdminPage() {
       onError: () => {
         setSerieParaExcluir(null);
         setErroLista('Não foi possível excluir a série de plantões.');
+      },
+    });
+  }
+
+  function confirmarEncerrarSerie() {
+    if (!serieParaEncerrar) return;
+    encerrarSerieMutation.mutate(serieParaEncerrar, {
+      onSuccess: () => setSerieParaEncerrar(null),
+      onError: () => {
+        setSerieParaEncerrar(null);
+        setErroLista('Não foi possível cancelar os próximos plantões da série.');
       },
     });
   }
@@ -215,9 +212,7 @@ export default function PlantoesAdminPage() {
                       {plantao.tipoPlantao ? `${plantao.tipoPlantao.horaInicio}-${plantao.tipoPlantao.horaFim}` : '—'}
                     </Td>
                     <Td>
-                      <Badge tone={plantao.status === 'PUBLICADO' ? 'success' : 'neutral'}>
-                        {STATUS_LABEL[plantao.status]}
-                      </Badge>
+                      <Badge tone={STATUS_TONE[plantao.status]}>{STATUS_LABEL[plantao.status]}</Badge>
                     </Td>
                     <Td className="text-right">
                       <div className="inline-flex items-center justify-end gap-2">
@@ -242,15 +237,28 @@ export default function PlantoesAdminPage() {
                           <Trash2 aria-hidden="true" className="h-4 w-4" />
                         </Button>
                         {plantao.serieId && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-xs text-[var(--color-danger)]"
-                            onClick={() => setSerieParaExcluir({ serieId: plantao.serieId as string, quantidade: qtdSerie })}
-                            title="Excluir toda a série de plantões"
-                          >
-                            Excluir série
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-[var(--color-danger)]"
+                              onClick={() =>
+                                setSerieParaEncerrar({ serieId: plantao.serieId as string, data: plantao.data.slice(0, 10) })
+                              }
+                              title="Cancelar este e os próximos plantões da série"
+                            >
+                              Cancelar daqui em diante
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-[var(--color-danger)]"
+                              onClick={() => setSerieParaExcluir({ serieId: plantao.serieId as string, quantidade: qtdSerie })}
+                              title="Excluir toda a série de plantões"
+                            >
+                              Excluir série
+                            </Button>
+                          </>
                         )}
                       </div>
                     </Td>
@@ -262,63 +270,44 @@ export default function PlantoesAdminPage() {
         </Card>
       )}
 
-      <Dialog open={dialogAberto} onOpenChange={setDialogAberto} title={emEdicao ? 'Editar plantão' : 'Novo plantão'}>
+      <Dialog
+        open={dialogAberto}
+        onOpenChange={setDialogAberto}
+        title={emEdicao ? 'Editar plantão' : 'Novo plantão'}
+        className="max-w-xl"
+      >
         <form onSubmit={(event) => salvar(emEdicao?.status ?? 'RASCUNHO', event)} className="flex flex-col gap-4">
-          <FormField label={mostrarCamposRecorrencia ? 'Data de início' : 'Data do plantão'} htmlFor="data-plantao">
-            <Input id="data-plantao" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
-          </FormField>
-          <FormField label="Nome (opcional)" htmlFor="nome-plantao">
-            <Input id="nome-plantao" value={nome} onChange={(e) => setNome(e.target.value)} />
-          </FormField>
-          <FormField label="Tipo de plantão" htmlFor="tipo-plantao">
-            <Select id="tipo-plantao" value={tipoPlantaoId} onChange={(e) => setTipoPlantaoId(e.target.value)} required>
-              <option value="">Selecione um tipo</option>
-              {tiposPlantao
-                .filter((t) => t.ativo)
-                .map((tipo) => (
-                  <option key={tipo.id} value={tipo.id}>
-                    {tipo.nome} ({tipo.horaInicio}-{tipo.horaFim})
+          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+            <FormField label="Data do plantão" htmlFor="data-plantao">
+              <Input id="data-plantao" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+            </FormField>
+            <FormField label="Nome (opcional)" htmlFor="nome-plantao">
+              <Input id="nome-plantao" value={nome} onChange={(e) => setNome(e.target.value)} />
+            </FormField>
+            <FormField label="Tipo de plantão" htmlFor="tipo-plantao">
+              <Select id="tipo-plantao" value={tipoPlantaoId} onChange={(e) => setTipoPlantaoId(e.target.value)} required>
+                <option value="">Selecione um tipo</option>
+                {tiposPlantao
+                  .filter((t) => t.ativo)
+                  .map((tipo) => (
+                    <option key={tipo.id} value={tipo.id}>
+                      {tipo.nome} ({tipo.horaInicio}-{tipo.horaFim})
+                    </option>
+                  ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Atendente / substituto" htmlFor="atendente-plantao" error={erro ?? undefined}>
+              <Select id="atendente-plantao" value={userId} onChange={(e) => setUserId(e.target.value)}>
+                <option value="">Sem plantonista vinculado</option>
+                {plantonistas.map((usuario) => (
+                  <option key={usuario.id} value={usuario.id}>
+                    {usuario.nome}
                   </option>
                 ))}
-            </Select>
-          </FormField>
-
-          {mostrarCamposRecorrencia && (
-            <FormField label="Data final da recorrência" htmlFor="data-fim-plantao">
-              <Input
-                id="data-fim-plantao"
-                type="date"
-                value={dataFim}
-                onChange={(e) => setDataFim(e.target.value)}
-                required
-              />
+              </Select>
             </FormField>
-          )}
-
-          {mostrarDiasSemana && (
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-bold text-[var(--color-text-primary)]">Dias da semana</span>
-              <div className="flex flex-wrap gap-3">
-                {DIAS_SEMANA_LABEL.map((label, dia) => (
-                  <label key={dia} className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)]">
-                    <input type="checkbox" checked={diasSemana.includes(dia)} onChange={() => alternarDiaSemana(dia)} />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <FormField label="Atendente / substituto" htmlFor="atendente-plantao" error={erro ?? undefined}>
-            <Select id="atendente-plantao" value={userId} onChange={(e) => setUserId(e.target.value)}>
-              <option value="">Sem plantonista vinculado</option>
-              {plantonistas.map((usuario) => (
-                <option key={usuario.id} value={usuario.id}>
-                  {usuario.nome}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+          </div>
           <FormActions>
             <Button type="button" variant="secondary" disabled={pending} onClick={() => salvar('RASCUNHO')}>
               Salvar rascunho
@@ -355,6 +344,37 @@ export default function PlantoesAdminPage() {
               disabled={removeSerieMutation.isPending}
             >
               {removeSerieMutation.isPending ? 'Excluindo...' : 'Excluir série'}
+            </Button>
+          </FormActions>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={!!serieParaEncerrar}
+        onOpenChange={(open) => !open && setSerieParaEncerrar(null)}
+        title="Cancelar daqui em diante"
+      >
+        <div className="flex flex-col gap-5">
+          <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+            Cancelar o plantão de {serieParaEncerrar?.data} e todos os seguintes desta série? Os plantões anteriores
+            não são afetados. Esta ação não pode ser desfeita.
+          </p>
+          <FormActions>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setSerieParaEncerrar(null)}
+              disabled={encerrarSerieMutation.isPending}
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={confirmarEncerrarSerie}
+              disabled={encerrarSerieMutation.isPending}
+            >
+              {encerrarSerieMutation.isPending ? 'Cancelando...' : 'Cancelar daqui em diante'}
             </Button>
           </FormActions>
         </div>

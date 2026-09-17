@@ -6,6 +6,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { RequireRotina } from '../auth/rotina.decorator';
 import { RotinaGuard } from '../auth/rotina.guard';
 import { CreatePlantaoDto } from './dto/create-plantao.dto';
+import { EncerrarSerieDto } from './dto/encerrar-serie.dto';
 import { SolicitarTrocaDto } from './dto/solicitar-troca.dto';
 import { UpdatePlantaoDto } from './dto/update-plantao.dto';
 import { PlantoesService } from './plantoes.service';
@@ -66,6 +67,13 @@ export class PlantoesController {
   @Roles('ADMIN')
   removeSerie(@Param('serieId') serieId: string) {
     return this.plantoesService.removeSerie(serieId);
+  }
+
+  @Patch('serie/:serieId/encerrar-apartir')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  encerrarSerieAPartir(@Param('serieId') serieId: string, @Body() dto: EncerrarSerieDto) {
+    return this.plantoesService.encerrarSerieAPartir(serieId, dto.data);
   }
 
   @Delete(':id')

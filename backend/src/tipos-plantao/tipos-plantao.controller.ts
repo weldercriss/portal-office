@@ -1,10 +1,16 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CreateTipoPlantaoDto } from './dto/create-tipo-plantao.dto';
 import { UpdateTipoPlantaoDto } from './dto/update-tipo-plantao.dto';
 import { TiposPlantaoService } from './tipos-plantao.service';
+
+interface UsuarioAutenticado {
+  id: string;
+  role: string;
+}
 
 @UseGuards(JwtAuthGuard)
 @Controller('tipos-plantao')
@@ -19,15 +25,15 @@ export class TiposPlantaoController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  create(@Body() dto: CreateTipoPlantaoDto) {
-    return this.tiposPlantaoService.create(dto);
+  create(@Body() dto: CreateTipoPlantaoDto, @Req() req: Request) {
+    return this.tiposPlantaoService.create(dto, (req.user as UsuarioAutenticado).id);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  update(@Param('id') id: string, @Body() dto: UpdateTipoPlantaoDto) {
-    return this.tiposPlantaoService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateTipoPlantaoDto, @Req() req: Request) {
+    return this.tiposPlantaoService.update(id, dto, (req.user as UsuarioAutenticado).id);
   }
 
   @Delete(':id')

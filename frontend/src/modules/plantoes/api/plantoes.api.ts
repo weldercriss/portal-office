@@ -1,11 +1,5 @@
 import { httpClient } from '../../../api/httpClient';
-import type {
-  CreatePlantaoInput,
-  CreatePlantaoResult,
-  Plantao,
-  TrocaPlantao,
-  UpdatePlantaoInput,
-} from '../types/plantao.types';
+import type { CreatePlantaoInput, Plantao, TrocaPlantao, UpdatePlantaoInput } from '../types/plantao.types';
 
 export interface FiltrosPlantao {
   userId?: string;
@@ -33,7 +27,7 @@ export function getPlantao(id: string) {
 }
 
 export function createPlantao(input: CreatePlantaoInput) {
-  return httpClient<CreatePlantaoResult>('/plantoes', { method: 'POST', body: input });
+  return httpClient<Plantao>('/plantoes', { method: 'POST', body: input });
 }
 
 export function updatePlantao(id: string, input: UpdatePlantaoInput) {
@@ -46,6 +40,13 @@ export function deletePlantao(id: string) {
 
 export function removeSerie(serieId: string) {
   return httpClient<{ ok: boolean; removidos: number }>(`/plantoes/serie/${serieId}`, { method: 'DELETE' });
+}
+
+export function encerrarSerieAPartir(serieId: string, data: string) {
+  return httpClient<{ ok: boolean; cancelados: number }>(`/plantoes/serie/${serieId}/encerrar-apartir`, {
+    method: 'PATCH',
+    body: { data },
+  });
 }
 
 export function getPlantoesDisponiveisParaTroca(id: string) {

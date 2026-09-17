@@ -9,10 +9,17 @@ import { SolicitacoesService } from '../solicitacoes/solicitacoes.service';
 describe('PlantoesService', () => {
   let service: PlantoesService;
   const prismaMock: any = {
-    plantao: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
+    plantao: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
+    },
     trocaPlantao: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
     tipoPlantao: { findUnique: jest.fn() },
-    plantaoSerie: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
+    plantaoSerie: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
   };
   prismaMock.$transaction = jest.fn((arg: unknown) =>
     typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prismaMock) : Promise.all(arg as Promise<unknown>[]),
@@ -160,6 +167,50 @@ describe('PlantoesService', () => {
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prismaMock.plantao.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('soft-cancels an occurrence that belongs to a série instead of deleting it', async () => {
+      prismaMock.plantao.findUnique.mockResolvedValue({ id: 'p1', serieId: 'serie1' });
+      await service.remove('p1');
+      expect(prismaMock.plantao.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { status: 'CANCELADO' } });
+      expect(prismaMock.plantao.delete).not.toHaveBeenCalled();
+      expect(agendaMock.enfileirar).toHaveBeenCalledWith(['p1']);
+    });
+
+    it('deletes an avulso occurrence (no série) for real', async () => {
+      prismaMock.plantao.findUnique.mockResolvedValue({ id: 'p1', serieId: null });
+      await service.remove('p1');
+      expect(prismaMock.plantao.delete).toHaveBeenCalledWith({ where: { id: 'p1' } });
+      expect(prismaMock.plantao.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('encerrarSerieAPartir', () => {
+    it('throws when the series is not found', async () => {
+      prismaMock.plantaoSerie.findUnique.mockResolvedValue(null);
+      await expect(service.encerrarSerieAPartir('missing', '2026-09-10')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('cancels occurrences from that date on and closes the série the day before', async () => {
+      prismaMock.plantaoSerie.findUnique.mockResolvedValue({
+        id: 'serie1',
+        plantoes: [{ id: 'p2' }, { id: 'p3' }],
+      });
+
+      const resultado = await service.encerrarSerieAPartir('serie1', '2026-09-10');
+
+      expect(prismaMock.plantao.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['p2', 'p3'] } },
+        data: { status: 'CANCELADO' },
+      });
+      expect(prismaMock.plantaoSerie.update).toHaveBeenCalledWith({
+        where: { id: 'serie1' },
+        data: { dataFim: new Date('2026-09-09') },
+      });
+      expect(agendaMock.enfileirar).toHaveBeenCalledWith(['p2', 'p3']);
+      expect(resultado).toEqual({ ok: true, cancelados: 2 });
     });
   });
 

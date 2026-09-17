@@ -1,6 +1,6 @@
 import type { RegraRecorrenciaPlantao } from '../../tipos-plantao/types/tipo-plantao.types';
 
-export type PlantaoStatus = 'RASCUNHO' | 'PUBLICADO';
+export type PlantaoStatus = 'RASCUNHO' | 'PUBLICADO' | 'CANCELADO';
 export type TrocaStatus = 'PENDENTE' | 'ACEITA' | 'REJEITADA';
 
 export interface PlantaoUsuarioResumo {
@@ -39,21 +39,9 @@ export interface CreatePlantaoInput {
   userId?: string | null;
   status?: PlantaoStatus;
   tipoPlantaoId: string;
-  /** Obrigatório quando o tipo selecionado tem regra diferente de UNICO. */
-  dataFim?: string;
-  /** 0=Dom..6=Sáb. Obrigatório quando a regra é SEMANAL. */
-  diasSemana?: number[];
 }
 
 export type UpdatePlantaoInput = Partial<CreatePlantaoInput>;
-
-export interface PlantaoSerieCriada {
-  serieId: string;
-  quantidade: number;
-  plantoes: Plantao[];
-}
-
-export type CreatePlantaoResult = Plantao | PlantaoSerieCriada;
 
 export interface TrocaPlantao {
   id: string;

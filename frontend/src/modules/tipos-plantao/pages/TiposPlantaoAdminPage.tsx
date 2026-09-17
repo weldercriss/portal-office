@@ -13,6 +13,7 @@ import { LoadingState } from '../../../components/ui/LoadingState';
 import { Select } from '../../../components/ui/Select';
 import { StatusToggle } from '../../../components/ui/StatusToggle';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
+import { DIAS_SEMANA_LABEL } from '../../plantoes/constants';
 import {
   useCreateTipoPlantao,
   useDeleteTipoPlantaoPermanently,
@@ -37,6 +38,7 @@ export default function TiposPlantaoAdminPage() {
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFim, setHoraFim] = useState('');
   const [regra, setRegra] = useState<RegraRecorrenciaPlantao>('UNICO');
+  const [diasSemana, setDiasSemana] = useState<number[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [erroLista, setErroLista] = useState<string | null>(null);
 
@@ -45,12 +47,17 @@ export default function TiposPlantaoAdminPage() {
     return tipos.filter((t) => t.nome.toLowerCase().includes(busca.toLowerCase()));
   }, [tiposQuery.data, busca]);
 
+  function alternarDiaSemana(dia: number) {
+    setDiasSemana((atual) => (atual.includes(dia) ? atual.filter((d) => d !== dia) : [...atual, dia].sort()));
+  }
+
   function abrirNovo() {
     setEmEdicao(null);
     setNome('');
     setHoraInicio('');
     setHoraFim('');
     setRegra('UNICO');
+    setDiasSemana([]);
     setErro(null);
     setDialogAberto(true);
   }
@@ -61,6 +68,7 @@ export default function TiposPlantaoAdminPage() {
     setHoraInicio(tipo.horaInicio);
     setHoraFim(tipo.horaFim);
     setRegra(tipo.regra);
+    setDiasSemana(tipo.diasSemana ?? []);
     setErro(null);
     setDialogAberto(true);
   }
@@ -68,7 +76,7 @@ export default function TiposPlantaoAdminPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setErro(null);
-    const input = { nome, horaInicio, horaFim, regra };
+    const input = { nome, horaInicio, horaFim, regra, diasSemana: regra === 'SEMANAL' ? diasSemana : undefined };
     try {
       if (emEdicao) {
         await updateMutation.mutateAsync({ id: emEdicao.id, input });
@@ -76,8 +84,8 @@ export default function TiposPlantaoAdminPage() {
         await createMutation.mutateAsync(input);
       }
       setDialogAberto(false);
-    } catch {
-      setErro('Não foi possível salvar o tipo de plantão.');
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Não foi possível salvar o tipo de plantão.');
     }
   }
 
@@ -173,42 +181,67 @@ export default function TiposPlantaoAdminPage() {
         </Card>
       )}
 
-      <Dialog open={dialogAberto} onOpenChange={setDialogAberto} title={emEdicao ? 'Editar tipo' : 'Novo tipo de plantão'}>
+      <Dialog
+        open={dialogAberto}
+        onOpenChange={setDialogAberto}
+        title={emEdicao ? 'Editar tipo' : 'Novo tipo de plantão'}
+        className="max-w-xl"
+      >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <FormField label="Nome" htmlFor="nome-tipo-plantao" error={erro ?? undefined}>
-            <Input id="nome-tipo-plantao" value={nome} onChange={(e) => setNome(e.target.value)} required />
-          </FormField>
-          <FormField label="Hora de início" htmlFor="hora-inicio-tipo-plantao">
-            <Input
-              id="hora-inicio-tipo-plantao"
-              type="time"
-              value={horaInicio}
-              onChange={(e) => setHoraInicio(e.target.value)}
-              required
-            />
-          </FormField>
-          <FormField label="Hora de fim" htmlFor="hora-fim-tipo-plantao">
-            <Input
-              id="hora-fim-tipo-plantao"
-              type="time"
-              value={horaFim}
-              onChange={(e) => setHoraFim(e.target.value)}
-              required
-            />
-          </FormField>
-          <FormField label="Regra de recorrência" htmlFor="regra-tipo-plantao">
-            <Select
-              id="regra-tipo-plantao"
-              value={regra}
-              onChange={(e) => setRegra(e.target.value as RegraRecorrenciaPlantao)}
-            >
-              {REGRAS.map((r) => (
-                <option key={r} value={r}>
-                  {REGRA_RECORRENCIA_LABEL[r]}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+            <FormField label="Nome" htmlFor="nome-tipo-plantao" error={erro ?? undefined} className="sm:col-span-2">
+              <Input id="nome-tipo-plantao" value={nome} onChange={(e) => setNome(e.target.value)} required />
+            </FormField>
+            <FormField label="Hora de início" htmlFor="hora-inicio-tipo-plantao">
+              <Input
+                id="hora-inicio-tipo-plantao"
+                type="time"
+                value={horaInicio}
+                onChange={(e) => setHoraInicio(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Hora de fim" htmlFor="hora-fim-tipo-plantao">
+              <Input
+                id="hora-fim-tipo-plantao"
+                type="time"
+                value={horaFim}
+                onChange={(e) => setHoraFim(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Regra de recorrência" htmlFor="regra-tipo-plantao" className="sm:col-span-2">
+              <Select
+                id="regra-tipo-plantao"
+                value={regra}
+                onChange={(e) => setRegra(e.target.value as RegraRecorrenciaPlantao)}
+              >
+                {REGRAS.map((r) => (
+                  <option key={r} value={r}>
+                    {REGRA_RECORRENCIA_LABEL[r]}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          </div>
+
+          {regra === 'SEMANAL' && (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-bold text-[var(--color-text-primary)]">Dias da semana</span>
+              <div className="flex flex-wrap gap-3">
+                {DIAS_SEMANA_LABEL.map((label, dia) => (
+                  <label key={dia} className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)]">
+                    <input type="checkbox" checked={diasSemana.includes(dia)} onChange={() => alternarDiaSemana(dia)} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                O portal gera os plantões futuros sozinho, sem plantonista, enquanto o tipo estiver ativo.
+              </p>
+            </div>
+          )}
+
           <FormActions>
             <Button type="button" variant="secondary" onClick={() => setDialogAberto(false)}>
               Cancelar

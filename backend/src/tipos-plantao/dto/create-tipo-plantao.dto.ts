@@ -1,5 +1,5 @@
 import { RegraRecorrenciaPlantao } from '@prisma/client';
-import { IsEnum, IsString, Matches } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 import { HORA_REGEX } from '../../common/validation/hora';
 
 export class CreateTipoPlantaoDto {
@@ -14,4 +14,12 @@ export class CreateTipoPlantaoDto {
 
   @IsEnum(RegraRecorrenciaPlantao)
   regra!: RegraRecorrenciaPlantao;
+
+  /** 0=Dom..6=Sáb. Obrigatório quando a regra é SEMANAL. */
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  diasSemana?: number[];
 }

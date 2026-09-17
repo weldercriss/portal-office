@@ -12,6 +12,8 @@ export interface TipoPlantao {
   horaInicio: string;
   horaFim: string;
   regra: RegraRecorrenciaPlantao;
+  /** 0=Dom..6=Sáb. Só relevante quando regra=SEMANAL. */
+  diasSemana: number[];
   ativo: boolean;
   criadoEm: string;
 }
@@ -21,6 +23,7 @@ export interface CreateTipoPlantaoInput {
   horaInicio: string;
   horaFim: string;
   regra: RegraRecorrenciaPlantao;
+  diasSemana?: number[];
 }
 
 export interface UpdateTipoPlantaoInput extends Partial<CreateTipoPlantaoInput> {

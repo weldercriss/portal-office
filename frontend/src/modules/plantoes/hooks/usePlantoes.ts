@@ -3,6 +3,7 @@ import {
   aceitarTroca,
   createPlantao,
   deletePlantao,
+  encerrarSerieAPartir,
   getPlantao,
   getPlantoes,
   getPlantoesDisponiveisParaTroca,
@@ -61,6 +62,14 @@ export function useRemoveSerie() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (serieId: string) => removeSerie(serieId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: PLANTOES_KEY }),
+  });
+}
+
+export function useEncerrarSerieAPartir() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ serieId, data }: { serieId: string; data: string }) => encerrarSerieAPartir(serieId, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: PLANTOES_KEY }),
   });
 }
