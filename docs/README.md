@@ -5,12 +5,37 @@
 - [CONTEXT.md](AI/CONTEXT.md) — como o sistema está implementado hoje:
   arquitetura, funcionalidades, integrações e operação.
 - [TASKS.md](AI/TASKS.md) — trabalho que falta concluir, consolidado dos
-  planos anteriores: interface de patrimônio/equipamentos, integração com
-  colaboradores e validação da entrega.
+  planos anteriores: bloco de patrimônio na ficha do colaborador e
+  validação da entrega em ambiente real.
 
 Agendamento de salas e os itens transversais já estão implementados no
-código. Patrimônio possui backend, mas sua interface está pendente. A pasta
-de planos anteriores foi removida após a consolidação das pendências.
+código. Patrimônio possui backend e frontend (cadastro de bens e vínculo com
+colaboradores); falta o bloco na ficha do colaborador. A pasta de planos
+anteriores foi removida após a consolidação das pendências.
+
+## features/planning/ — planos de funcionalidades ainda não implementadas
+
+- [integracao-portal-operacional.md](features/planning/integracao-portal-operacional.md) —
+  plano para trocar dados com o Portal Operacional (cs-dash) via a Public API dele.
+  Escopo de dados ainda não decidido.
+- [migracao-mongodb.md](features/planning/migracao-mongodb.md) — plano faseado para
+  substituir PostgreSQL por MongoDB preservando Prisma, IDs e contratos da API.
+- [convites-agenda-por-email.md](features/planning/convites-agenda-por-email.md) —
+  plano para criar um evento único na agenda do RH e convidar destinatários por
+  e-mail, sem exigir conexão individual de cada colaborador. Fases 1–3
+  (banco, backend, frontend) implementadas em 17/09/2026, desligadas por
+  `GOOGLE_CALENDAR_EMAIL_INVITES_ENABLED=false` até a Fase 0 (prova manual
+  numa conta real do Workspace) ser executada — ver
+  [reference/agenda-google.md](reference/agenda-google.md#convites-de-agenda-por-e-mail).
+
+## features-planning/ — planos solicitados neste caminho
+
+- [logs-aplicacao.md](features-planning/logs-aplicacao.md) — plano do módulo
+  administrativo que registra requisições HTTP, detalha erros e reinicia o
+  histórico em ciclos de 100 entradas.
+- [solicitacao-reserva-sala-colaborador.md](features/planning/solicitacao-reserva-sala-colaborador.md) —
+  plano, contrato e pontos de continuidade da solicitação pessoal de salas,
+  implementada com configuração global e aprovação administrativa.
 
 ## reference/ — como as coisas já implementadas funcionam e como operar
 

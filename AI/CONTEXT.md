@@ -1,14 +1,14 @@
 # Contexto atual do Portal BackOffice
 
-Atualizado em **15/09/2026** a partir dos arquivos presentes neste checkout, incluindo alterações locais ainda não commitadas.
+Atualizado em **17/09/2026** a partir dos arquivos presentes neste checkout, incluindo alterações locais ainda não commitadas.
 
-Este documento descreve o sistema implementado. A leitura do repositório não confirma quais migrations estão aplicadas no banco, quais integrações estão habilitadas nem qual versão está publicada. Nesta atualização não foram executados testes, builds, migrations ou deploys.
+Este documento descreve o sistema implementado. A leitura do repositório não confirma quais migrations estão aplicadas no banco, quais integrações estão habilitadas nem qual versão está publicada. Nesta atualização, o frontend novo de patrimônio foi validado com `tsc -b` e a suíte de testes do frontend (`npm.cmd test`); backend, migrations e deploy não foram executados.
 
 ## 1. O que é o sistema
 
 Portal interno da Suri para administrar colaboradores e rotinas de RH e operação: departamentos, permissões, plantões, solicitações, reservas de salas, documentos, admissão e recrutamento. Possui notificações dentro do portal, integração com Telegram e sincronização com a Agenda Google.
 
-Existem dois perfis, `ADMIN` e `USER`. O cadastro de uma pessoa como colaborador é separado da autorização para ela entrar na plataforma. O módulo de patrimônio já possui backend e modelagem, mas ainda não tem telas no frontend.
+Existem dois perfis, `ADMIN` e `USER`. O cadastro de uma pessoa como colaborador é separado da autorização para ela entrar na plataforma. O módulo de patrimônio (cadastro de bens e vínculo com colaboradores) tem backend e frontend implementados.
 
 ## 2. Arquitetura e organização
 
@@ -73,7 +73,11 @@ Para colaboradores com acesso à rotina, existe um dashboard com próximos plant
 
 ### Plantões
 
-API `/plantoes`, com tipo de plantão configurável (nome, `horaInicio`/`horaFim` e regra de recorrência num único cadastro — não existe mais um `Turno` separado, foi mesclado em `TipoPlantao`). Há plantões em `RASCUNHO` e `PUBLICADO`, recorrências `UNICO`, `SEMANAL` e `MENSAL`, exclusão de série e fluxo de troca com estados `PENDENTE`, `ACEITA` e `REJEITADA`. Plantões integram notificações e Agenda Google.
+API `/plantoes`, com tipo de plantão configurável (nome, `horaInicio`/`horaFim`, regra de recorrência e, quando `SEMANAL`, `diasSemana`, num único cadastro — não existe mais um `Turno` separado, foi mesclado em `TipoPlantao`). Há plantões em `RASCUNHO`, `PUBLICADO` e `CANCELADO`, recorrências `UNICO`, `SEMANAL` e `MENSAL`, e fluxo de troca com estados `PENDENTE`, `ACEITA` e `REJEITADA`. Plantões integram notificações e Agenda Google.
+
+**Recorrência automática por tipo.** Um `TipoPlantao` ativo com regra `SEMANAL` ou `MENSAL` mantém sozinho uma `PlantaoSerie` aberta (`dataFim=null`): `PlantoesRecorrenciaWorker` roda uma vez por dia, fecha séries órfãs (tipo desativado ou voltou a `UNICO`), reabre a série quando o `diasSemana` do tipo muda, e completa as ocorrências futuras numa janela rolante de 90 dias — sempre sem plantonista (`userId=null`), em `RASCUNHO`, prontas pra alguém assumir. `POST /plantoes` sem `dataFim` cria só aquela data (avulso, vale pra qualquer tipo, inclusive recorrente — cobertura extra/feriado); com `dataFim`/`diasSemana` no corpo ainda cria um lote manual pontual, como antes dessa mudança. `TipoPlantao.criadoPorId` (opcional) guarda quem configurou por último a recorrência e é o autor usado nas séries abertas automaticamente — um tipo antigo sem esse campo preenchido só ativa a geração automática depois de ser resalvo pelo admin.
+
+**Cancelamento por escopo, como o Google Agenda.** `DELETE /plantoes/:id` cancela (`status=CANCELADO`, soft) quando o plantão pertence a uma série — evita que o worker recrie a data — ou apaga de verdade quando é avulso (sem série). `PATCH /plantoes/serie/:serieId/encerrar-apartir` cancela aquela ocorrência e todas as seguintes da série, fechando a série nessa data (o worker não gera mais nada depois disso). `DELETE /plantoes/serie/:serieId` remove a série inteira, passado e futuro (inalterado). Os três mapeiam, na tela `/plantoes`, para "Este" / "Cancelar daqui em diante" / "Excluir série".
 
 A navegação e a página `/plantoes` estão atualmente restritas a administradores. O arquivo `MeusPlantoesPage.tsx` continua no repositório, mas seu carregamento está comentado no roteador; as operações de troca continuam implementadas no backend.
 
@@ -102,23 +106,76 @@ Backend e frontend implementados. A API usa `/v1/agendamento/salas` e `/v1/agend
 - Salas possuem nome, localização, capacidade, observações, ativação e janelas semanais de disponibilidade com duração dos intervalos da grade.
 - Reservas possuem sala, data, horário inicial/final, solicitante, responsável opcional, título, observações e quem registrou.
 - Estados: `SOLICITADA`, `CONFIRMADA` e `CANCELADA`. Os dois primeiros ocupam o horário; cancelar libera o horário e preserva o registro. Excluir remove o registro.
-- A API permite consulta a quem tem a rotina `agendamentos`; criação e alterações exigem `ADMIN`.
+- A API permite consulta a quem tem a rotina `agendamentos`. O `ADMIN` cria reservas diretamente e pode confirmar, editar, cancelar ou excluir. A configuração global `AgendamentoConfig.permiteSolicitacaoColaborador` (desligada por padrão) autoriza o colaborador a criar somente uma solicitação para si, sempre em `SOLICITADA`, e a cancelar somente a própria solicitação ainda pendente; identidade e status são impostos pelo backend.
 - O serviço valida disponibilidade e sobreposição antes de salvar. O WebSocket atualiza as telas quando reservas mudam; isso não constitui, por si só, um bloqueio de concorrência no banco.
-- A interface apresenta lista e grade diária, filtros, diálogo de reserva e confirmação direta na listagem. Administradores também podem criar/editar salas na própria tela de agendamentos ou em Configurações.
+- A interface apresenta lista e grade diária, filtros, diálogo de reserva e confirmação direta na listagem. Administradores também podem criar/editar salas na própria tela de agendamentos ou em Configurações. Quando a configuração está ligada, o colaborador vê `Solicitar sala` e um formulário reduzido, sem campos administrativos; o controle fica em *Configurações → Salas*.
 - Os destinatários dos avisos podem ser solicitante, responsável ou ambos (`ReservaDestinatarios`). A opção `notificarTelegram` controla avisos pessoais pelo Telegram; as notificações internas de mudança continuam.
-- Há avisos de criação, confirmação e cancelamento, além de lembretes aproximadamente 30 minutos antes do início e do fim. O worker roda a cada cinco minutos, usa uma janela de 25 a 35 minutos e flags para evitar repetição; atualmente seleciona reservas confirmadas do dia UTC com `notificarTelegram=true`.
-- Reservas sincronizam eventos na Agenda Google do solicitante. A escolha do responsável como destinatário de notificações não altera o titular dessa sincronização.
+- Há avisos de solicitação, criação, confirmação e cancelamento, além de lembretes aproximadamente 30 minutos antes do início e do fim. Uma nova solicitação avisa internamente o solicitante e os administradores. O worker roda a cada cinco minutos, usa uma janela de 25 a 35 minutos e flags para evitar repetição; atualmente seleciona reservas confirmadas do dia UTC com `notificarTelegram=true`.
+- Somente reservas `CONFIRMADA` sincronizam eventos na Agenda Google do solicitante; `SOLICITADA` já ocupa a sala, mas espera a decisão administrativa. A escolha do responsável como destinatário de notificações não altera o titular dessa sincronização.
 
 ### Convites de agenda em massa
 
-API `/convites-agenda`, exclusiva de `ADMIN` (sem rotina própria — é uma ação sensível, escreve na agenda de terceiros, sem caso de uso para delegar a não-admins). O admin monta um evento (título, descrição, local, início/fim) e escolhe vários colaboradores; o portal cria uma cópia do evento na Agenda Google de cada destinatário que já concedeu a conexão em Meu perfil, reaproveitando `AgendaGoogleService`/`GoogleCalendarClient` do módulo `agenda-google`. Não existe um único evento com organizador/convidados (exigiria delegação de domínio, que este projeto não usa): cada pessoa recebe seu próprio evento, no mesmo padrão de plantões e reservas.
+API `/convites-agenda`, exclusiva de `ADMIN` (sem rotina própria — é uma ação sensível, escreve/convida em nome do portal, sem caso de uso para delegar a não-admins). Dois modos convivem em `ConviteAgendaEvento.modo`:
 
-- `GET /convites-agenda/colaboradores` lista colaboradores ativos com `disponivel` (falso quando a pessoa não conectou, desligou a sincronização pessoal, ou está inativa) — o frontend mostra esses como "Indisponível" e não deixa selecionar.
-- `POST /convites-agenda/verificar` checa, para um intervalo e uma lista de destinatários, o que já existe na agenda de cada um (`GoogleCalendarClient.listarNoIntervalo`, `events.list` com `timeMin`/`timeMax`) — mostra a divergência (título e horário do evento existente) antes de criar, como o próprio Google Agenda faz ao convidar alguém ocupado. É só consulta, não persiste nada.
-- `POST /convites-agenda` cria o `ConviteAgendaEvento` e, para cada destinatário, tenta criar o evento — resultado por pessoa fica em `ConviteAgendaDestinatario.status` (`CRIADO`, `INDISPONIVEL`, `FALHA`, `CANCELADO`), com `calendarId`/`eventId`/`googleSub` guardados quando criado, para permitir cancelar ou editar depois.
-- `PATCH /convites-agenda/:id` edita título/descrição/local/início/fim de um convite já enviado (destinatários não mudam por aqui) e propaga pra quem já tinha o evento — o ID determinístico faz o `criar` do Google virar um PATCH por baixo (409 → atualiza em vez de duplicar). Quem está `CANCELADO` fica de fora: editar não ressuscita o convite pra essa pessoa.
-- `POST /convites-agenda/:id/reenviar` tenta de novo só quem ficou `FALHA`/`INDISPONIVEL` (não mexe em quem já tem o evento). `POST /convites-agenda/:id/cancelar` remove o evento da agenda de quem estava `CRIADO` e marca `CANCELADO`.
-- Front-end em `frontend/src/modules/convites-agenda/`, rota `/convites-agenda` (nav item `adminOnly`, ícone reaproveitado de "calendar"). `ConviteAgendaDialog.tsx` atende os dois modos (criar e editar, como `ReservaDialog`) e exige clicar em "Verificar disponibilidade" antes de liberar "Enviar convites"/"Salvar alterações" — a checagem fica presa à combinação atual de horário/destinatários e é descartada a qualquer mudança. Em edição, os destinatários aparecem como lista fixa (sem checkbox) com o status atual de cada um; não dá pra adicionar ou remover gente por ali.
+- **`EVENTO_COM_CONVIDADOS`** (atual, desde 17/09/2026): implementa
+  [docs/features/planning/convites-agenda-por-email.md](../docs/features/planning/convites-agenda-por-email.md).
+  Um único evento é criado na agenda do **organizador** (o próprio `ADMIN`
+  autenticado, via `req.user.id` — não há campo "De"), com os destinatários
+  como `attendees` por e-mail e `sendUpdates=all`. Só o organizador precisa
+  conectar a Agenda Google; destinatários não precisam de cadastro nem
+  conexão no portal. Toda criação nova usa este modo.
+- **`COPIAS_INDIVIDUAIS`** (legado): uma cópia do evento por destinatário
+  conectado, no mesmo padrão de plantões/reservas. Não é mais criável — só
+  segue existindo para os convites enviados antes desta mudança, com edição,
+  reenvio e cancelamento roteados pelo `modo` salvo no registro.
+
+**Sai desligado por padrão.** `GOOGLE_CALENDAR_EMAIL_INVITES_ENABLED=false`
+bloqueia `POST /convites-agenda` até a Fase 0 do plano (prova manual numa
+conta real do Google Workspace, ainda não executada) confirmar entrega,
+RSVP, cancelamento e Free/Busy segundo as políticas reais do domínio — ver
+pendência em [TASKS.md](TASKS.md#11-convites-de-agenda-google-por-e-mail).
+
+Contrato do modo atual (`GoogleCalendarClient` ganhou métodos próprios —
+`criarComConvidados`/`atualizarComConvidados`/`cancelarComConvidados`/
+`obterComConvidados`/`consultarLivreOcupado` — sem alterar
+`criar`/`atualizar`/`remover`/`listarNoIntervalo`, usados por plantões e
+reservas):
+
+- `GET /convites-agenda/colaboradores` lista colaboradores ativos, todos
+  selecionáveis (não depende mais de conexão individual).
+- `GET /convites-agenda/organizador/status` informa se quem está logado tem
+  a Agenda Google conectada (`conectado`, `email`, `precisaReconectar`),
+  reaproveitando `AgendaGoogleService.statusDoUsuario`.
+- `POST /convites-agenda/verificar` consulta `/freeBusy` da Calendar API com
+  o token do organizador, em lotes de até 50 e-mails, e devolve
+  `LIVRE`/`OCUPADO`/`DESCONHECIDO` por e-mail — desconhecido nunca bloqueia
+  o envio. Escopo `calendar.events.freebusy` foi adicionado ao consentimento
+  (`agenda-google-oauth.service.ts`); conexões antigas sem ele simplesmente
+  recebem `DESCONHECIDO`.
+- `POST /convites-agenda` grava o convite e os destinatários (por e-mail,
+  com `userId`/`nome` casados quando existe colaborador correspondente) numa
+  transação, e só então chama o Google fora dela — sucesso grava `ENVIADO` +
+  `calendarId`/`eventId`; falha grava `FALHA` + `ultimoErro` sanitizado. ID
+  do evento é determinístico (`eventIdDeterministico`); em 409 o cliente
+  confere `extendedProperties.private.conviteAgendaId` antes de atualizar,
+  pra nunca sobrescrever o evento de outro convite numa colisão.
+- `PATCH /convites-agenda/:id` (não muda destinatários) só chama o Google
+  quando já existe `eventId`; sem envio prévio, atualiza só o registro local.
+- `POST /convites-agenda/:id/reenviar` só age quando `statusEvento=FALHA`,
+  repetindo a mesma criação (mesmo ID). `POST /convites-agenda/:id/cancelar`
+  cancela o evento único (`sendUpdates=all`) e marca `CANCELADO`.
+- `POST /convites-agenda/:id/sincronizar-respostas` busca o RSVP atual de
+  cada destinatário (`ConviteAgendaResposta`: `PENDENTE`/`ACEITO`/
+  `RECUSADO`/`TALVEZ`/`DESCONHECIDO`) via `obterComConvidados` — sob demanda,
+  não por polling.
+- Front-end em `frontend/src/modules/convites-agenda/`, rota
+  `/convites-agenda`. `ConviteAgendaDialog.tsx` mostra o e-mail do
+  organizador (ou o botão Conectar/Reconectar, reaproveitando o mesmo fluxo
+  do card de Meu perfil) e, na criação, um campo de busca sobre os
+  colaboradores mais chips de e-mail digitado manualmente (sem cadastro no
+  portal, com aviso próprio); "Verificar disponibilidade" continua obrigatório
+  antes de enviar, mas resultado `DESCONHECIDO` não bloqueia. Convites
+  legados continuam com a tela antiga (lista fixa por `status`, sem RSVP).
 
 ### Patrimônio e equipamentos
 
@@ -128,7 +185,13 @@ A modelagem separa conservação física (`EstadoEquipamento`), situação do it
 
 Há cadastro e filtros de inventário, resumo por situação, entrega, devolução, cancelamento e termo assinado em PDF/DOC/DOCX de até 10 MB. O termo é anexado à alocação; não se marca `ASSINADO` sem documento. Colaboradores desligados não recebem equipamentos. Ao mudar o status de alguém para `DESLIGADO`, o serviço de usuários aciona a devolução de suas alocações, fora da transação do cadastro.
 
-**Ainda não existe frontend de patrimônio:** faltam páginas, navegação, catálogo de tipos e bloco de equipamentos na ficha do colaborador. Há testes do backend no repositório, mas seu resultado não foi revalidado nesta atualização.
+Consultar o inventário/as alocações é liberado pra quem tem a rotina, mas a identidade de quem está com o item só aparece pra `ADMIN` e pro próprio dono: `redigirColaborador` (`equipamentos.service.ts`, reaproveitada em `alocacoes.service.ts`) some `colaboradorId`/`colaborador.nome`/`colaborador.email` das alocações de terceiros antes de responder `GET /patrimonio/equipamentos`, `/equipamentos/:id`, `/alocacoes` e `/alocacoes/:id` — chamadas internas entre services (sem usuário autenticado) continuam recebendo o dado completo, só a resposta HTTP é filtrada.
+
+Entrega em lote: a tela de inventário (`PatrimonioPage.tsx`) tem checkbox por linha disponível (`ADMIN`, item em estoque e sem vínculo); com 2+ selecionados, "Vincular selecionados" abre `VinculoLoteDialog.tsx`, que cria uma alocação por item (reaproveita `POST /patrimonio/alocacoes` em paralelo) e depois anexa um único termo a todas de uma vez via `POST /patrimonio/alocacoes/termo-lote` (`AlocacoesService.anexarTermoLote`, `updateMany` aplicando o mesmo arquivo) — reflete a entrega física real, onde um documento assinado cobre vários itens do mesmo colaborador. O vínculo de um item por vez continua em `VinculoDialog.tsx`, sem mudança.
+
+Frontend em `frontend/src/modules/patrimonio/`: `PatrimonioPage.tsx` (rota `/patrimonio`, item **Equipamentos** no menu, condicionado à rotina `patrimonio`) reúne resumo por situação, filtros (tipo, situação, conservação, busca, disponibilidade), cadastro/edição do equipamento e o vínculo com colaborador via `VinculoDialog.tsx` (criar entrega, devolver, cancelar, anexar/baixar/remover termo) ou em lote via `VinculoLoteDialog.tsx`. `TiposEquipamentoAdminPage.tsx` fica em Configurações (`/configuracoes/tipos-equipamento`) para o catálogo de tipos. Consulta é liberada para quem tem a rotina; as ações de escrita (cadastrar, editar, vincular, devolver) só aparecem para `ADMIN`, e o seletor de colaborador do vínculo já exclui quem está `DESLIGADO` ou inativo.
+
+Pendências conhecidas, não implementadas: a página não mostra o **histórico** de alocações encerradas de um equipamento (só a alocação ativa, que é o que a API inclui por padrão) e a `FichaColaboradorPage.tsx` ainda não tem um bloco com os equipamentos da pessoa. Não há **aceite digital** do colaborador (confirmar recebimento pelo próprio portal) — por ora toda entrega é tratada como aceita assim que registrada; o aceite ficou combinado como evolução futura, sem desenho ainda. Testes: `equipamentos.service.spec.ts` e `alocacoes.service.spec.ts` cobrem `redigirColaborador` e `anexarTermoLote` no backend; `PatrimonioPage.test.tsx` cobre a seleção múltipla e o fallback "—" pra colaborador oculto no frontend.
 
 ## 5. Integrações e tarefas em segundo plano
 
@@ -140,7 +203,7 @@ A Agenda Google usa consentimento OAuth individual em Meu perfil, com conexão, 
 
 Plantões e reservas registram pendências em tabelas do próprio PostgreSQL (`AgendaSyncPendente` e `ReservaSyncPendente`). Workers a cada minuto processam a sincronização, com novas tentativas e espera por reconexão quando necessário. Vínculos de eventos remotos sobrevivem à exclusão do registro local para permitir sua limpeza. O portal é a origem dos dados: alterações manuais no evento Google podem ser sobrescritas na sincronização seguinte.
 
-Não há um broker externo de filas nesse fluxo. O worker de plantões declara pressupor uma instância da API; não há coordenação distribuída de lote nesse worker para múltiplas réplicas.
+Não há um broker externo de filas nesse fluxo. Os workers (sincronização de agenda a cada minuto e `PlantoesRecorrenciaWorker`, recorrência automática de plantão uma vez por dia) pressupõem uma única instância da API; não há coordenação distribuída de lote para múltiplas réplicas.
 
 ### Notificações e Telegram
 
@@ -161,7 +224,7 @@ O envio Telegram é disparado sem aguardar a entrega dentro de `NotificacoesServ
 | `/` | Dashboard condicionado à rotina; conteúdo varia por perfil. |
 | `/perfil` | Perfil e conexões pessoais, para usuário autenticado. |
 | `/plantoes` | Gestão de plantões; `ADMIN` e rotina correspondente. |
-| `/agendamentos` | Consulta de reservas; gestão para `ADMIN`. |
+| `/agendamentos` | Consulta de reservas; gestão para `ADMIN`; solicitação pessoal quando habilitada. |
 | `/solicitacoes` | Gestão administrativa ou solicitações pessoais. |
 | `/convites-agenda` | Convites de agenda em massa; `ADMIN` apenas. |
 | `/configuracoes/colaboradores` | Cadastro administrativo de colaboradores. |
@@ -197,7 +260,6 @@ Variáveis principais: `DATABASE_URL`, segredos e expiração JWT, `CORS_ORIGIN`
 
 ## 8. Limites e referências para continuidade
 
-- Patrimônio está disponível apenas no backend.
 - Comunicados, templates de comunicados, desempenho e a antiga página de portal do colaborador foram removidos no estado local examinado. Não aparecem como módulos/rotas ativos.
 - Horários padrão, horários diferenciados e almoço do cadastro foram removidos do schema atual; horários de tipos de plantão e de reservas continuam existindo.
 - As migrations presentes incluem essas remoções, login/Agenda Google, salas, patrimônio, acesso à plataforma, responsáveis e evolução dos avisos Telegram. Não foi consultado o estado de aplicação delas em nenhum banco.
