@@ -1,4 +1,7 @@
-import { ArrayNotEmpty, IsArray, IsISO8601, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsEmail, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
+
+/** Limite da seção 8.4 do plano: além de 200, o Google também pode limitar convites em massa. */
+const MAX_DESTINATARIOS = 200;
 
 export class VerificarConviteAgendaDto {
   @IsISO8601()
@@ -9,8 +12,9 @@ export class VerificarConviteAgendaDto {
 
   @IsArray()
   @ArrayNotEmpty()
-  @IsUUID('4', { each: true })
-  destinatarioIds!: string[];
+  @ArrayMaxSize(MAX_DESTINATARIOS)
+  @IsEmail({}, { each: true })
+  destinatarioEmails!: string[];
 }
 
 export class CreateConviteAgendaDto extends VerificarConviteAgendaDto {

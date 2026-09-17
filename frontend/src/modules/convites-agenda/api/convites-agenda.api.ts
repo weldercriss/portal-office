@@ -3,8 +3,9 @@ import type {
   ColaboradorParaConvite,
   ConviteAgenda,
   CreateConviteAgendaInput,
+  DisponibilidadeEmail,
+  OrganizadorStatus,
   UpdateConviteAgendaInput,
-  VerificacaoDestinatario,
   VerificarConviteAgendaInput,
 } from '../types/convite-agenda.types';
 
@@ -12,6 +13,10 @@ const BASE = '/convites-agenda';
 
 export function getColaboradoresParaConvite() {
   return httpClient<ColaboradorParaConvite[]>(`${BASE}/colaboradores`);
+}
+
+export function getOrganizadorStatus() {
+  return httpClient<OrganizadorStatus>(`${BASE}/organizador/status`);
 }
 
 export function getConvitesAgenda() {
@@ -22,9 +27,9 @@ export function getConviteAgenda(id: string) {
   return httpClient<ConviteAgenda>(`${BASE}/${id}`);
 }
 
-/** Só consulta o que já existe na agenda de cada destinatário; não cria nada. */
+/** Só consulta livre/ocupado de cada e-mail; não cria nada. */
 export function verificarConviteAgenda(input: VerificarConviteAgendaInput) {
-  return httpClient<VerificacaoDestinatario[]>(`${BASE}/verificar`, { method: 'POST', body: input });
+  return httpClient<DisponibilidadeEmail[]>(`${BASE}/verificar`, { method: 'POST', body: input });
 }
 
 export function createConviteAgenda(input: CreateConviteAgendaInput) {
@@ -41,4 +46,8 @@ export function reenviarConviteAgenda(id: string) {
 
 export function cancelarConviteAgenda(id: string) {
   return httpClient<ConviteAgenda>(`${BASE}/${id}/cancelar`, { method: 'POST' });
+}
+
+export function sincronizarRespostasConviteAgenda(id: string) {
+  return httpClient<ConviteAgenda>(`${BASE}/${id}/sincronizar-respostas`, { method: 'POST' });
 }

@@ -5,7 +5,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AgendaGoogleCrypto } from './agenda-google.crypto';
 
 const ESCOPO_EVENTOS = 'https://www.googleapis.com/auth/calendar.events';
-const ESCOPOS = ['openid', 'email', ESCOPO_EVENTOS];
+/// Necessário só para consultar Free/Busy nos convites de agenda por e-mail
+/// (seção 6 do plano). Não é exigido na validação de `concluir`: conexões
+/// antigas sem esse escopo continuam válidas para criar/editar evento, e uma
+/// consulta Free/Busy sem permissão vira DESCONHECIDO por item, sem bloquear.
+const ESCOPO_FREEBUSY = 'https://www.googleapis.com/auth/calendar.events.freebusy';
+const ESCOPOS = ['openid', 'email', ESCOPO_EVENTOS, ESCOPO_FREEBUSY];
 const TENTATIVA_TTL_MS = 10 * 60 * 1000;
 
 /** Motivos devolvidos ao frontend na URL de retorno. Nunca texto cru do Google. */
@@ -51,7 +56,8 @@ function hash(valor: string): string {
   return createHash('sha256').update(valor).digest('hex');
 }
 
-function normalizarEmail(email: string): string {
+/** Reaproveitado por outros módulos (ex.: convites de agenda por e-mail). */
+export function normalizarEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 

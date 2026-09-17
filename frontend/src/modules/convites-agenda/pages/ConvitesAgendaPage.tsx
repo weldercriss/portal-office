@@ -11,15 +11,35 @@ import { LoadingState } from '../../../components/ui/LoadingState';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { ConviteAgendaDialog } from '../components/ConviteAgendaDialog';
-import { useCancelarConviteAgenda, useConvitesAgenda, useReenviarConviteAgenda } from '../hooks/useConvitesAgenda';
-import type { ConviteAgenda, ConviteAgendaStatus } from '../types/convite-agenda.types';
-import { STATUS_CONVITE_DESTINATARIO } from '../types/convite-agenda.types';
+import {
+  useCancelarConviteAgenda,
+  useConvitesAgenda,
+  useReenviarConviteAgenda,
+  useSincronizarRespostasConviteAgenda,
+} from '../hooks/useConvitesAgenda';
+import type { ConviteAgenda, ConviteAgendaEventoStatus, ConviteAgendaStatus } from '../types/convite-agenda.types';
+import { RESPOSTA_CONVITE, STATUS_CONVITE_DESTINATARIO, STATUS_EVENTO_CONVITE } from '../types/convite-agenda.types';
 
-const TOM_STATUS: Record<ConviteAgendaStatus, 'success' | 'warning' | 'danger' | 'neutral'> = {
+const TOM_STATUS_LEGADO: Record<ConviteAgendaStatus, 'success' | 'warning' | 'danger' | 'neutral'> = {
   CRIADO: 'success',
   INDISPONIVEL: 'neutral',
   FALHA: 'danger',
   CANCELADO: 'neutral',
+};
+
+const TOM_STATUS_EVENTO: Record<ConviteAgendaEventoStatus, 'success' | 'warning' | 'danger' | 'neutral'> = {
+  PENDENTE: 'warning',
+  ENVIADO: 'success',
+  FALHA: 'danger',
+  CANCELADO: 'neutral',
+};
+
+const TOM_RESPOSTA: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
+  PENDENTE: 'neutral',
+  ACEITO: 'success',
+  RECUSADO: 'danger',
+  TALVEZ: 'warning',
+  DESCONHECIDO: 'neutral',
 };
 
 function formatarPeriodo(inicio: string, fim: string): string {
@@ -31,9 +51,10 @@ function formatarPeriodo(inicio: string, fim: string): string {
   return `${dia}, ${horaInicio} às ${horaFim}`;
 }
 
-function resumo(convite: ConviteAgenda) {
+function resumoLegado(convite: ConviteAgenda) {
   const contagem = new Map<ConviteAgendaStatus, number>();
   for (const destinatario of convite.destinatarios) {
+    if (!destinatario.status) continue;
     contagem.set(destinatario.status, (contagem.get(destinatario.status) ?? 0) + 1);
   }
   return contagem;
@@ -48,6 +69,7 @@ export default function ConvitesAgendaPage() {
   const convitesQuery = useConvitesAgenda();
   const cancelarMutation = useCancelarConviteAgenda();
   const reenviarMutation = useReenviarConviteAgenda();
+  const sincronizarMutation = useSincronizarRespostasConviteAgenda();
 
   const convites = useMemo(() => convitesQuery.data ?? [], [convitesQuery.data]);
 
@@ -73,7 +95,15 @@ export default function ConvitesAgendaPage() {
     setErroAcao(null);
     reenviarMutation.mutate(id, {
       onSuccess: (atualizado) => setDetalhado((atual) => (atual?.id === id ? atualizado : atual)),
-      onError: () => setErroAcao('Não foi possível reenviar para quem ainda está pendente.'),
+      onError: () => setErroAcao('Não foi possível tentar o envio novamente.'),
+    });
+  }
+
+  function handleSincronizar(id: string) {
+    setErroAcao(null);
+    sincronizarMutation.mutate(id, {
+      onSuccess: (atualizado) => setDetalhado((atual) => (atual?.id === id ? atualizado : atual)),
+      onError: () => setErroAcao('Não foi possível atualizar as respostas.'),
     });
   }
 
@@ -81,7 +111,7 @@ export default function ConvitesAgendaPage() {
     <PageShell>
       <PageHeader
         title="Convites de agenda"
-        description="Crie um evento e envie de uma vez para a agenda dos colaboradores conectados ao Google Agenda."
+        description="Crie um evento e convide colaboradores ou e-mails externos — só você, como organizador, precisa conectar a Agenda Google."
         actions={<Button onClick={abrirNovo}>Novo convite</Button>}
       />
 
@@ -92,7 +122,7 @@ export default function ConvitesAgendaPage() {
       ) : convitesQuery.isLoading ? (
         <LoadingState rows={4} />
       ) : convites.length === 0 ? (
-        <EmptyState title="Nenhum convite enviado" description="Crie o primeiro convite em massa para a agenda dos colaboradores." />
+        <EmptyState title="Nenhum convite enviado" description="Crie o primeiro convite em massa para colaboradores e e-mails externos." />
       ) : (
         <Card elevated className="overflow-hidden">
           <Table>
@@ -100,33 +130,47 @@ export default function ConvitesAgendaPage() {
               <tr>
                 <Th>Título</Th>
                 <Th>Quando</Th>
-                <Th>Criado por</Th>
-                <Th>Destinatários</Th>
+                <Th>Organizador</Th>
+                <Th>Status</Th>
                 <Th className="text-right">Ações</Th>
               </tr>
             </thead>
             <tbody>
               {convites.map((convite) => {
-                const contagem = resumo(convite);
-                const temCriado = (contagem.get('CRIADO') ?? 0) > 0;
-                const temPendente = (contagem.get('FALHA') ?? 0) > 0 || (contagem.get('INDISPONIVEL') ?? 0) > 0;
+                const legado = convite.modo === 'COPIAS_INDIVIDUAIS';
+                const contagem = legado ? resumoLegado(convite) : null;
+                const temCriado = !!contagem && (contagem.get('CRIADO') ?? 0) > 0;
+                const temPendenteLegado = !!contagem && ((contagem.get('FALHA') ?? 0) > 0 || (contagem.get('INDISPONIVEL') ?? 0) > 0);
                 return (
                   <Tr key={convite.id}>
                     <Td className="font-bold text-[var(--color-text-primary)]">
                       <button type="button" className="text-left hover:underline" onClick={() => setDetalhado(convite)}>
                         {convite.titulo}
                       </button>
+                      {legado && (
+                        <Badge tone="neutral" className="ml-2">
+                          Legado
+                        </Badge>
+                      )}
                     </Td>
                     <Td>{formatarPeriodo(convite.inicio, convite.fim)}</Td>
-                    <Td>{convite.criadoPor.nome}</Td>
+                    <Td>{legado ? convite.criadoPor.nome : (convite.organizadorEmail ?? convite.criadoPor.nome)}</Td>
                     <Td>
-                      <div className="flex flex-wrap gap-1">
-                        {STATUS_CONVITE_DESTINATARIO.filter((opcao) => contagem.get(opcao.value)).map((opcao) => (
-                          <Badge key={opcao.value} tone={TOM_STATUS[opcao.value]}>
-                            {contagem.get(opcao.value)} {opcao.label.toLowerCase()}
+                      {legado ? (
+                        <div className="flex flex-wrap gap-1">
+                          {STATUS_CONVITE_DESTINATARIO.filter((opcao) => contagem?.get(opcao.value)).map((opcao) => (
+                            <Badge key={opcao.value} tone={TOM_STATUS_LEGADO[opcao.value]}>
+                              {contagem?.get(opcao.value)} {opcao.label.toLowerCase()}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        convite.statusEvento && (
+                          <Badge tone={TOM_STATUS_EVENTO[convite.statusEvento]}>
+                            {STATUS_EVENTO_CONVITE.find((opcao) => opcao.value === convite.statusEvento)?.label}
                           </Badge>
-                        ))}
-                      </div>
+                        )
+                      )}
                     </Td>
                     <Td className="text-right">
                       <div className="inline-flex flex-wrap items-center justify-end gap-2">
@@ -141,25 +185,32 @@ export default function ConvitesAgendaPage() {
                           <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
                           Editar
                         </Button>
-                        {temPendente && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={reenviarMutation.isPending}
-                            onClick={() => handleReenviar(convite.id)}
-                          >
-                            Reenviar pendentes
-                          </Button>
-                        )}
-                        {temCriado && (
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            disabled={cancelarMutation.isPending}
-                            onClick={() => handleCancelar(convite.id)}
-                          >
-                            Cancelar
-                          </Button>
+                        {legado ? (
+                          <>
+                            {temPendenteLegado && (
+                              <Button variant="secondary" size="sm" disabled={reenviarMutation.isPending} onClick={() => handleReenviar(convite.id)}>
+                                Reenviar pendentes
+                              </Button>
+                            )}
+                            {temCriado && (
+                              <Button variant="danger" size="sm" disabled={cancelarMutation.isPending} onClick={() => handleCancelar(convite.id)}>
+                                Cancelar
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {convite.statusEvento === 'FALHA' && (
+                              <Button variant="secondary" size="sm" disabled={reenviarMutation.isPending} onClick={() => handleReenviar(convite.id)}>
+                                Tentar envio novamente
+                              </Button>
+                            )}
+                            {convite.statusEvento === 'ENVIADO' && (
+                              <Button variant="danger" size="sm" disabled={cancelarMutation.isPending} onClick={() => handleCancelar(convite.id)}>
+                                Cancelar
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </Td>
@@ -185,17 +236,45 @@ export default function ConvitesAgendaPage() {
               <p>{formatarPeriodo(detalhado.inicio, detalhado.fim)}</p>
               {detalhado.local && <p>Local: {detalhado.local}</p>}
               {detalhado.descricao && <p className="mt-1 whitespace-pre-wrap">{detalhado.descricao}</p>}
+              {detalhado.modo === 'EVENTO_COM_CONVIDADOS' && detalhado.organizadorEmail && (
+                <p className="mt-1">Organizador: {detalhado.organizadorEmail}</p>
+              )}
             </div>
+
+            {detalhado.modo === 'EVENTO_COM_CONVIDADOS' && (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {detalhado.respostasSincronizadasEm
+                    ? `Respostas atualizadas em ${new Date(detalhado.respostasSincronizadasEm).toLocaleString('pt-BR')}`
+                    : 'Respostas ainda não foram sincronizadas.'}
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={detalhado.statusEvento !== 'ENVIADO' || sincronizarMutation.isPending}
+                  onClick={() => handleSincronizar(detalhado.id)}
+                >
+                  {sincronizarMutation.isPending ? 'Atualizando...' : 'Atualizar respostas'}
+                </Button>
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5">
               {detalhado.destinatarios.map((destinatario) => (
                 <div
                   key={destinatario.id}
                   className="flex items-center justify-between gap-2 rounded-[var(--radius-field)] border border-[var(--color-border)] px-3 py-2 text-sm"
                 >
-                  <span className="truncate">{destinatario.user.nome}</span>
-                  <Badge tone={TOM_STATUS[destinatario.status]} title={destinatario.erro ?? undefined}>
-                    {STATUS_CONVITE_DESTINATARIO.find((opcao) => opcao.value === destinatario.status)?.label}
-                  </Badge>
+                  <span className="truncate">{destinatario.nome ?? destinatario.user?.nome ?? destinatario.email}</span>
+                  {detalhado.modo === 'COPIAS_INDIVIDUAIS' ? (
+                    <Badge tone={TOM_STATUS_LEGADO[destinatario.status ?? 'CANCELADO']} title={destinatario.erro ?? undefined}>
+                      {STATUS_CONVITE_DESTINATARIO.find((opcao) => opcao.value === destinatario.status)?.label}
+                    </Badge>
+                  ) : (
+                    <Badge tone={TOM_RESPOSTA[destinatario.resposta]}>
+                      {RESPOSTA_CONVITE.find((opcao) => opcao.value === destinatario.resposta)?.label}
+                    </Badge>
+                  )}
                 </div>
               ))}
             </div>

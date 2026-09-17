@@ -1,4 +1,23 @@
+/** Modo legado: uma cópia do evento por destinatário conectado. Toda criação nova usa o outro modo. */
+export type ConviteAgendaModo = 'COPIAS_INDIVIDUAIS' | 'EVENTO_COM_CONVIDADOS';
+
+/** Andamento do evento único (modo EVENTO_COM_CONVIDADOS). */
+export type ConviteAgendaEventoStatus = 'PENDENTE' | 'ENVIADO' | 'FALHA' | 'CANCELADO';
+
+/** Andamento de uma cópia individual (modo legado, COPIAS_INDIVIDUAIS). */
 export type ConviteAgendaStatus = 'CRIADO' | 'INDISPONIVEL' | 'FALHA' | 'CANCELADO';
+
+/** RSVP do destinatário no evento único. */
+export type ConviteAgendaResposta = 'PENDENTE' | 'ACEITO' | 'RECUSADO' | 'TALVEZ' | 'DESCONHECIDO';
+
+export type DisponibilidadeStatus = 'LIVRE' | 'OCUPADO' | 'DESCONHECIDO';
+
+export const STATUS_EVENTO_CONVITE: { value: ConviteAgendaEventoStatus; label: string }[] = [
+  { value: 'PENDENTE', label: 'Pendente' },
+  { value: 'ENVIADO', label: 'Enviado' },
+  { value: 'FALHA', label: 'Falha' },
+  { value: 'CANCELADO', label: 'Cancelado' },
+];
 
 export const STATUS_CONVITE_DESTINATARIO: { value: ConviteAgendaStatus; label: string }[] = [
   { value: 'CRIADO', label: 'Criado' },
@@ -7,32 +26,44 @@ export const STATUS_CONVITE_DESTINATARIO: { value: ConviteAgendaStatus; label: s
   { value: 'CANCELADO', label: 'Cancelado' },
 ];
 
+export const RESPOSTA_CONVITE: { value: ConviteAgendaResposta; label: string }[] = [
+  { value: 'PENDENTE', label: 'Pendente' },
+  { value: 'ACEITO', label: 'Aceito' },
+  { value: 'RECUSADO', label: 'Recusado' },
+  { value: 'TALVEZ', label: 'Talvez' },
+  { value: 'DESCONHECIDO', label: 'Desconhecido' },
+];
+
 export interface ColaboradorParaConvite {
   id: string;
   nome: string;
   email: string;
-  /** Falso quando a pessoa não conectou (ou desligou) a Agenda Google. */
-  disponivel: boolean;
 }
 
-export interface ConflitoConvite {
-  titulo: string;
-  inicio: string | null;
-  fim: string | null;
+export interface OrganizadorStatus {
+  conectado: boolean;
+  email: string | null;
+  precisaReconectar: boolean;
+  podeConsultarDisponibilidade: boolean;
 }
 
-export interface VerificacaoDestinatario {
-  userId: string;
-  disponivel: boolean;
-  conflitos: ConflitoConvite[];
+export interface DisponibilidadeEmail {
+  email: string;
+  status: DisponibilidadeStatus;
+  ocupado: { inicio: string; fim: string }[];
 }
 
 export interface ConviteAgendaDestinatario {
   id: string;
-  userId: string;
-  user: { id: string; nome: string; email: string };
-  status: ConviteAgendaStatus;
+  userId: string | null;
+  user: { id: string; nome: string; email: string } | null;
+  email: string;
+  nome: string | null;
+  /** Só preenchido em registros legados (modo COPIAS_INDIVIDUAIS). */
+  status: ConviteAgendaStatus | null;
   erro: string | null;
+  resposta: ConviteAgendaResposta;
+  respondidoEm: string | null;
 }
 
 export interface ConviteAgenda {
@@ -45,6 +76,12 @@ export interface ConviteAgenda {
   criadoPor: { id: string; nome: string };
   criadoEm: string;
   destinatarios: ConviteAgendaDestinatario[];
+  modo: ConviteAgendaModo;
+  statusEvento: ConviteAgendaEventoStatus | null;
+  organizadorEmail: string | null;
+  enviadoEm: string | null;
+  canceladoEm: string | null;
+  respostasSincronizadasEm: string | null;
 }
 
 export interface CreateConviteAgendaInput {
@@ -53,14 +90,14 @@ export interface CreateConviteAgendaInput {
   local?: string;
   inicio: string;
   fim: string;
-  destinatarioIds: string[];
+  destinatarioEmails: string[];
 }
 
 /** Destinatários não mudam aqui — só os dados do evento. */
-export type UpdateConviteAgendaInput = Partial<Omit<CreateConviteAgendaInput, 'destinatarioIds'>>;
+export type UpdateConviteAgendaInput = Partial<Omit<CreateConviteAgendaInput, 'destinatarioEmails'>>;
 
 export interface VerificarConviteAgendaInput {
   inicio: string;
   fim: string;
-  destinatarioIds: string[];
+  destinatarioEmails: string[];
 }

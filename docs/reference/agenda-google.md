@@ -38,10 +38,16 @@ projeto Google Cloud, o que é diferente de ser super-administrador do Workspace
    openid
    email
    https://www.googleapis.com/auth/calendar.events
+   https://www.googleapis.com/auth/calendar.events.freebusy
    ```
 
    `calendar.events` permite gerenciar eventos das agendas acessíveis à pessoa;
    o portal limita suas operações aos eventos de plantão que ele mesmo cria.
+   `calendar.events.freebusy` foi acrescentado para os
+   [convites de agenda por e-mail](#convites-de-agenda-por-e-mail) consultarem
+   livre/ocupado dos destinatários com o token do organizador; não é exigido
+   na validação da conexão — quem conectou antes desse escopo existir continua
+   com a conexão válida, só a checagem de Free/Busy fica `DESCONHECIDO`.
 5. Copie o **Client Secret** desse cliente. Ele fica só no backend — nunca em
    variável `VITE_*`.
 
@@ -160,6 +166,24 @@ número de tentativas; as que esperam reconexão trazem
 `aguardandoReconexaoUserId`. Conexões com problema ficam em
 `AgendaGoogleConexao` com `status` e `ultimoErro`. São os primeiros lugares para
 olhar.
+
+## Convites de agenda por e-mail
+
+Módulo separado (`/convites-agenda`), mas reaproveita inteiramente esta
+autorização — não há uma segunda tela de conexão. Desde 17/09/2026, toda
+criação nova usa um **evento único** na agenda do organizador (o `ADMIN` que
+envia o convite) com os destinatários como `attendees` por e-mail; eles não
+precisam conectar nada nem ter cadastro no portal. Detalhe completo em
+[docs/features/planning/convites-agenda-por-email.md](../features/planning/convites-agenda-por-email.md)
+e no contrato de API em [AI/CONTEXT.md](../../AI/CONTEXT.md#convites-de-agenda-em-massa).
+
+Sai **desligado por padrão**:
+`GOOGLE_CALENDAR_EMAIL_INVITES_ENABLED="false"`. A Fase 0 do plano (prova
+manual numa conta real do Workspace, confirmando entrega, RSVP, cancelamento
+e Free/Busy) ainda não foi executada — ligar a flag antes disso significa
+confiar sem validação nas políticas de convite do domínio usado em produção.
+Convites criados antes desta mudança (uma cópia do evento por destinatário
+conectado) continuam funcionando pelo fluxo antigo, sem migração automática.
 
 ## Custos
 

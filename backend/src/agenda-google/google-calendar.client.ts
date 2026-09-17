@@ -18,6 +18,10 @@ export interface EventoAgenda {
   end: DataHoraEvento;
   status?: string;
   extendedProperties?: { private?: Record<string, string> };
+  attendees?: { email: string }[];
+  guestsCanInviteOthers?: boolean;
+  guestsCanModify?: boolean;
+  guestsCanSeeOtherGuests?: boolean;
 }
 
 export interface EventoExistente {
@@ -25,6 +29,33 @@ export interface EventoExistente {
   summary: string;
   start: DataHoraEvento;
   end: DataHoraEvento;
+}
+
+export interface AttendeeEvento {
+  email: string;
+  responseStatus?: string;
+}
+
+export interface EventoComConvidados {
+  id: string;
+  extendedProperties?: { private?: Record<string, string> };
+  attendees: AttendeeEvento[];
+}
+
+export type FreeBusyStatus = 'LIVRE' | 'OCUPADO' | 'DESCONHECIDO';
+
+export interface FreeBusyResultado {
+  email: string;
+  status: FreeBusyStatus;
+  ocupado: { inicio: string; fim: string }[];
+}
+
+/** O evento remoto já existe, mas não pertence a este convite — não sobrescrever. */
+export class ConviteAgendaConflitoRemoto extends Error {
+  constructor(readonly eventId: string) {
+    super(`O evento ${eventId} já existe na agenda do organizador e pertence a outro convite`);
+    this.name = 'ConviteAgendaConflitoRemoto';
+  }
 }
 
 function status(erro: unknown): number | undefined {
@@ -170,5 +201,138 @@ export class GoogleCalendarClient {
     } catch (erro) {
       return this.classificar(userId, erro);
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // Convites de agenda por e-mail: um evento único com attendees e
+  // sendUpdates=all. Métodos à parte de criar/atualizar/remover acima para
+  // não alterar o comportamento já usado por plantões e reservas.
+  // ---------------------------------------------------------------------
+
+  /**
+   * Como `criar`, mas com `sendUpdates: 'all'` (o Google notifica os
+   * attendees) e, em conflito de ID (409), confere se o evento existente
+   * pertence a este convite antes de sobrescrever — uma colisão de ID nunca
+   * deveria acontecer (o ID deriva de SHA-256), mas se acontecer não
+   * direciona a atualização para o evento de outro convite.
+   */
+  async criarComConvidados(
+    userId: string,
+    calendarId: string,
+    eventId: string,
+    evento: EventoAgenda,
+    conviteId: string,
+  ): Promise<string> {
+    const cliente = await this.cliente(userId);
+    try {
+      const resposta = await cliente.request<{ id: string }>({
+        url: this.url(calendarId),
+        method: 'POST',
+        params: { sendUpdates: 'all' },
+        data: { ...evento, id: eventId },
+      });
+      return resposta.data.id;
+    } catch (erro) {
+      if (status(erro) !== 409) return this.classificar(userId, erro);
+
+      const existente = await this.obterComConvidados(userId, calendarId, eventId);
+      if (existente && existente.extendedProperties?.private?.conviteAgendaId !== conviteId) {
+        throw new ConviteAgendaConflitoRemoto(eventId);
+      }
+
+      await cliente.request({
+        url: this.url(calendarId, eventId),
+        method: 'PATCH',
+        params: { sendUpdates: 'all' },
+        data: { ...evento, status: 'confirmed' },
+      });
+      return eventId;
+    }
+  }
+
+  /** Retorna false quando o evento não existe mais e precisa ser recriado. */
+  async atualizarComConvidados(userId: string, calendarId: string, eventId: string, evento: EventoAgenda): Promise<boolean> {
+    const cliente = await this.cliente(userId);
+    try {
+      await cliente.request({
+        url: this.url(calendarId, eventId),
+        method: 'PATCH',
+        params: { sendUpdates: 'all' },
+        data: evento,
+      });
+      return true;
+    } catch (erro) {
+      if (this.sumiu(erro)) return false;
+      return this.classificar(userId, erro);
+    }
+  }
+
+  async cancelarComConvidados(userId: string, calendarId: string, eventId: string): Promise<void> {
+    const cliente = await this.cliente(userId);
+    try {
+      await cliente.request({ url: this.url(calendarId, eventId), method: 'DELETE', params: { sendUpdates: 'all' } });
+    } catch (erro) {
+      if (this.sumiu(erro)) return;
+      await this.classificar(userId, erro);
+    }
+  }
+
+  /** `null` quando o evento não existe mais (404/410) — usado para sincronizar RSVP. */
+  async obterComConvidados(userId: string, calendarId: string, eventId: string): Promise<EventoComConvidados | null> {
+    const cliente = await this.cliente(userId);
+    try {
+      const resposta = await cliente.request<EventoComConvidados>({
+        url: this.url(calendarId, eventId),
+        method: 'GET',
+      });
+      return { ...resposta.data, attendees: resposta.data.attendees ?? [] };
+    } catch (erro) {
+      if (this.sumiu(erro)) return null;
+      return this.classificar(userId, erro);
+    }
+  }
+
+  /**
+   * Livre/ocupado de cada e-mail no intervalo, com o token do organizador —
+   * os destinatários não precisam conectar nada. Em lotes de 50 (limite da
+   * API); qualquer falha do lote (sem permissão, calendário inacessível etc.)
+   * vira `DESCONHECIDO` para os e-mails daquele lote, sem impedir o envio nem
+   * derrubar os demais lotes.
+   */
+  async consultarLivreOcupado(
+    userId: string,
+    emails: string[],
+    timeMin: string,
+    timeMax: string,
+  ): Promise<FreeBusyResultado[]> {
+    if (emails.length === 0) return [];
+    const cliente = await this.cliente(userId);
+    const resultado: FreeBusyResultado[] = [];
+
+    for (let inicio = 0; inicio < emails.length; inicio += 50) {
+      const lote = emails.slice(inicio, inicio + 50);
+      try {
+        const resposta = await cliente.request<{
+          calendars: Record<string, { busy?: { start: string; end: string }[]; errors?: unknown[] }>;
+        }>({
+          url: `${API}/freeBusy`,
+          method: 'POST',
+          data: { timeMin, timeMax, items: lote.map((email) => ({ id: email })) },
+        });
+        for (const email of lote) {
+          const calendario = resposta.data.calendars?.[email];
+          if (!calendario || (calendario.errors?.length ?? 0) > 0) {
+            resultado.push({ email, status: 'DESCONHECIDO', ocupado: [] });
+            continue;
+          }
+          const ocupado = (calendario.busy ?? []).map((intervalo) => ({ inicio: intervalo.start, fim: intervalo.end }));
+          resultado.push({ email, status: ocupado.length > 0 ? 'OCUPADO' : 'LIVRE', ocupado });
+        }
+      } catch {
+        for (const email of lote) resultado.push({ email, status: 'DESCONHECIDO', ocupado: [] });
+      }
+    }
+
+    return resultado;
   }
 }
