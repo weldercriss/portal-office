@@ -3,4 +3,4 @@
  * Ao publicar, atualize este valor junto com o campo `version` do package.json.
  * Formato: MAJOR.MINOR.PATCH.
  */
-export const APP_VERSION = '2.0.0';
+export const APP_VERSION = '2.0.1';
