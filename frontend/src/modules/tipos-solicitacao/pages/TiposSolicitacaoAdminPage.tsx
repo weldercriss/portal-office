@@ -102,8 +102,8 @@ export default function TiposSolicitacaoAdminPage() {
         await createMutation.mutateAsync(input);
       }
       setDialogAberto(false);
-    } catch {
-      setErro('Não foi possível salvar o tipo de solicitação.');
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar o tipo de solicitação.');
     }
   }
 
