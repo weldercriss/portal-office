@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ReservaDestinatarios } from '@prisma/client';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgendamentoGateway } from './agendamento.gateway';
+import { AgendamentoConfigService } from './agendamento-config.service';
 import { ReservasAgendaService } from './reservas-agenda.service';
 import { ReservasService } from './reservas.service';
 
@@ -21,6 +22,7 @@ describe('ReservasService', () => {
   const notificacoesMock = { criar: jest.fn(), criarParaAdmins: jest.fn() };
   const agendaMock = { enfileirar: jest.fn().mockResolvedValue(undefined) };
   const gatewayMock = { avisarMudancaDeReserva: jest.fn() };
+  const configMock = { permiteSolicitacaoColaborador: jest.fn().mockResolvedValue(true) };
 
   const novaReserva = {
     salaId: 'sala1',
@@ -67,6 +69,7 @@ describe('ReservasService', () => {
         { provide: NotificacoesService, useValue: notificacoesMock },
         { provide: ReservasAgendaService, useValue: agendaMock },
         { provide: AgendamentoGateway, useValue: gatewayMock },
+        { provide: AgendamentoConfigService, useValue: configMock },
       ],
     }).compile();
     service = moduleRef.get(ReservasService);
@@ -154,6 +157,43 @@ describe('ReservasService', () => {
         expect.objectContaining({ userId: 'u1', tipo: 'RESERVA_SALA_CRIADA' }),
       );
       expect(agendaMock.enfileirar).toHaveBeenCalledWith(['r1']);
+    });
+
+    it('cria a solicitação do colaborador em nome próprio e sempre pendente', async () => {
+      prismaMock.reserva.create.mockResolvedValue({ ...reservaCriada, status: 'SOLICITADA' });
+
+      await service.createSolicitacao(
+        { salaId: 'sala1', data: QUARTA, horaInicio: '10:00', horaFim: '11:00', titulo: 'Planejamento' },
+        'u1',
+      );
+
+      expect(prismaMock.reserva.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            solicitanteId: 'u1',
+            registradoPorId: 'u1',
+            responsavelId: null,
+            destinatariosNotificacao: 'SOLICITANTE',
+            status: 'SOLICITADA',
+          }),
+        }),
+      );
+      expect(notificacoesMock.criarParaAdmins).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'RESERVA_SALA_SOLICITADA' }),
+      );
+      expect(agendaMock.enfileirar).not.toHaveBeenCalled();
+    });
+
+    it('bloqueia a solicitação do colaborador quando a configuração está desligada', async () => {
+      configMock.permiteSolicitacaoColaborador.mockResolvedValueOnce(false);
+
+      await expect(
+        service.createSolicitacao(
+          { salaId: 'sala1', data: QUARTA, horaInicio: '10:00', horaFim: '11:00' },
+          'u1',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prismaMock.reserva.create).not.toHaveBeenCalled();
     });
 
     it('guarda a data como meia-noite UTC, sem depender do fuso do servidor', async () => {
@@ -269,6 +309,31 @@ describe('ReservasService', () => {
         expect.objectContaining({ tipo: 'RESERVA_SALA_CANCELADA' }),
       );
       expect(agendaMock.enfileirar).toHaveBeenCalledWith(['r1']);
+    });
+
+    it('permite ao colaborador cancelar somente a própria solicitação pendente', async () => {
+      prismaMock.reserva.findUnique.mockResolvedValue({ ...reservaCriada, status: 'SOLICITADA' });
+      prismaMock.reserva.update.mockResolvedValue({ ...reservaCriada, status: 'CANCELADA' });
+
+      await service.cancelarMinhaSolicitacao('r1', 'u1');
+
+      expect(prismaMock.reserva.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELADA' }) }),
+      );
+    });
+
+    it('recusa o cancelamento pessoal de solicitação de outra pessoa', async () => {
+      prismaMock.reserva.findUnique.mockResolvedValue({ ...reservaCriada, status: 'SOLICITADA' });
+
+      await expect(service.cancelarMinhaSolicitacao('r1', 'u2')).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prismaMock.reserva.update).not.toHaveBeenCalled();
+    });
+
+    it('recusa o cancelamento pessoal depois que a reserva foi confirmada', async () => {
+      prismaMock.reserva.findUnique.mockResolvedValue({ ...reservaCriada, status: 'CONFIRMADA' });
+
+      await expect(service.cancelarMinhaSolicitacao('r1', 'u1')).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.reserva.update).not.toHaveBeenCalled();
     });
 
     it('cancelar não revalida disponibilidade: o horário está sendo liberado', async () => {

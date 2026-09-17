@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AgendaGoogleModule } from '../agenda-google/agenda-google.module';
 import { NotificacoesModule } from '../notificacoes/notificacoes.module';
+import { AgendamentoConfigController } from './agendamento-config.controller';
+import { AgendamentoConfigService } from './agendamento-config.service';
 import { AgendamentoGateway } from './agendamento.gateway';
 import { ReservaLembreteWorker } from './reserva-lembrete.worker';
 import { ReservasAgendaService } from './reservas-agenda.service';
@@ -20,6 +22,7 @@ import { SalasService } from './salas.service';
 @Module({
   imports: [JwtModule.register({}), NotificacoesModule, AgendaGoogleModule],
   providers: [
+    AgendamentoConfigService,
     SalasService,
     ReservasService,
     ReservasAgendaService,
@@ -27,7 +30,7 @@ import { SalasService } from './salas.service';
     AgendamentoGateway,
     ReservaLembreteWorker,
   ],
-  controllers: [SalasController, ReservasController],
+  controllers: [AgendamentoConfigController, SalasController, ReservasController],
   exports: [SalasService, ReservasService],
 })
 export class AgendamentoModule {}

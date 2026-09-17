@@ -6,6 +6,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { RequireRotina } from '../auth/rotina.decorator';
 import { RotinaGuard } from '../auth/rotina.guard';
 import { CreateReservaDto, UpdateReservaDto } from './dto/reserva.dto';
+import { CreateReservaColaboradorDto } from './dto/reserva-colaborador.dto';
 import { ReservasService } from './reservas.service';
 
 interface UsuarioAutenticado {
@@ -15,8 +16,8 @@ interface UsuarioAutenticado {
 
 /**
  * API v1 do agendamento de salas. Consultar a agenda das salas é aberto a quem
- * tem a rotina; registrar e alterar reserva é do admin, que é quem recebe as
- * solicitações hoje.
+ * tem a rotina. O admin gerencia reservas; o colaborador pode abrir e cancelar
+ * a própria solicitação pendente quando a configuração global permite.
  */
 @UseGuards(JwtAuthGuard, RotinaGuard)
 @RequireRotina('agendamentos')
@@ -55,6 +56,11 @@ export class ReservasController {
     return this.reservasService.findOne(id);
   }
 
+  @Post('minhas')
+  createMinha(@Body() dto: CreateReservaColaboradorDto, @Req() req: Request) {
+    return this.reservasService.createSolicitacao(dto, (req.user as UsuarioAutenticado).id);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
@@ -75,6 +81,11 @@ export class ReservasController {
   @Roles('ADMIN')
   cancelar(@Param('id') id: string, @Body() dto: UpdateReservaDto) {
     return this.reservasService.cancelar(id, dto.motivoCancelamento);
+  }
+
+  @Post(':id/cancelar-minha')
+  cancelarMinha(@Param('id') id: string, @Req() req: Request) {
+    return this.reservasService.cancelarMinhaSolicitacao(id, (req.user as UsuarioAutenticado).id);
   }
 
   @Delete(':id')

@@ -3,7 +3,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { ListToolbar } from '../../../components/system/ListToolbar';
 import { SearchField } from '../../../components/system/SearchField';
 import { Button } from '../../../components/ui/Button';
-import { Card } from '../../../components/ui/Card';
+import { Card, CardTitle } from '../../../components/ui/Card';
 import { Dialog } from '../../../components/ui/Dialog';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
@@ -12,7 +12,13 @@ import { LoadingState } from '../../../components/ui/LoadingState';
 import { StatusToggle } from '../../../components/ui/StatusToggle';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { SalaDialog } from '../components/SalaDialog';
-import { useDeleteSalaPermanently, useSalas, useUpdateSala } from '../hooks/useAgendamento';
+import {
+  useAgendamentoConfig,
+  useDeleteSalaPermanently,
+  useSalas,
+  useUpdateAgendamentoConfig,
+  useUpdateSala,
+} from '../hooks/useAgendamento';
 import type { Sala } from '../types/agendamento.types';
 import { DIAS_SEMANA } from '../types/agendamento.types';
 
@@ -29,6 +35,8 @@ function resumirJanelas(sala: Sala): string {
 
 export default function SalasAdminPage() {
   const salasQuery = useSalas(true);
+  const configQuery = useAgendamentoConfig();
+  const updateConfigMutation = useUpdateAgendamentoConfig();
   const updateMutation = useUpdateSala();
   const deleteMutation = useDeleteSalaPermanently();
 
@@ -75,6 +83,14 @@ export default function SalasAdminPage() {
     });
   }
 
+  function alterarSolicitacaoColaborador(checked: boolean) {
+    setErroLista(null);
+    updateConfigMutation.mutate(
+      { permiteSolicitacaoColaborador: checked },
+      { onError: () => setErroLista('Não foi possível atualizar a permissão de solicitação de salas.') },
+    );
+  }
+
   if (salasQuery.isError) {
     return <ErrorState message="Não foi possível carregar as salas." onRetry={() => salasQuery.refetch()} />;
   }
@@ -85,6 +101,32 @@ export default function SalasAdminPage() {
 
   return (
     <>
+      <Card className="mb-6 flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="max-w-2xl">
+          <CardTitle>Solicitações de colaboradores</CardTitle>
+          <p className="mt-1 text-sm leading-6 text-[var(--color-text-secondary)]">
+            Quando habilitado, o colaborador pode solicitar uma sala para si. O pedido fica pendente até um
+            administrador confirmar ou cancelar.
+          </p>
+        </div>
+        {configQuery.isLoading ? (
+          <span className="text-sm text-[var(--color-text-muted)]">Carregando configuração...</span>
+        ) : configQuery.isError ? (
+          <Button variant="secondary" onClick={() => configQuery.refetch()}>Tentar novamente</Button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-[var(--color-text-secondary)]">
+              {configQuery.data?.permiteSolicitacaoColaborador ? 'Habilitado' : 'Desabilitado'}
+            </span>
+            <StatusToggle
+              checked={configQuery.data?.permiteSolicitacaoColaborador ?? false}
+              onChange={alterarSolicitacaoColaborador}
+              label="Permitir que colaboradores solicitem salas"
+            />
+          </div>
+        )}
+      </Card>
+
       <ListToolbar actions={<Button onClick={abrirNova}>Nova sala</Button>}>
         <SearchField value={busca} onChange={setBusca} placeholder="Buscar por nome ou local" />
       </ListToolbar>

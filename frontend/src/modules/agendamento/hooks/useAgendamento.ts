@@ -1,19 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  cancelarMinhaReserva,
   cancelarReserva,
+  createMinhaReserva,
   createReserva,
   createSala,
   deactivateSala,
   deleteReserva,
   deleteSalaPermanently,
+  getAgendamentoConfig,
   getHorarios,
   getMinhasReservas,
   getReservas,
   getSalas,
   updateReserva,
+  updateAgendamentoConfig,
   updateSala,
 } from '../api/agendamento.api';
 import type {
+  AgendamentoConfig,
+  CreateReservaColaboradorInput,
   CreateReservaInput,
   CreateSalaInput,
   FiltrosReserva,
@@ -21,6 +27,7 @@ import type {
   UpdateSalaInput,
 } from '../types/agendamento.types';
 
+const CONFIG_KEY = ['agendamento', 'config'] as const;
 const SALAS_KEY = ['agendamento', 'salas'] as const;
 export const RESERVAS_KEY = ['agendamento', 'reservas'] as const;
 export const HORARIOS_KEY = ['agendamento', 'horarios'] as const;
@@ -33,6 +40,18 @@ export const HORARIOS_KEY = ['agendamento', 'horarios'] as const;
 export function invalidarAgenda(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: RESERVAS_KEY });
   queryClient.invalidateQueries({ queryKey: HORARIOS_KEY });
+}
+
+export function useAgendamentoConfig() {
+  return useQuery({ queryKey: CONFIG_KEY, queryFn: getAgendamentoConfig });
+}
+
+export function useUpdateAgendamentoConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AgendamentoConfig) => updateAgendamentoConfig(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CONFIG_KEY }),
+  });
 }
 
 export function useSalas(all = false) {
@@ -102,6 +121,14 @@ export function useCreateReserva() {
   });
 }
 
+export function useCreateMinhaReserva() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateReservaColaboradorInput) => createMinhaReserva(input),
+    onSuccess: () => invalidarAgenda(queryClient),
+  });
+}
+
 export function useUpdateReserva() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -114,6 +141,14 @@ export function useCancelarReserva() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, motivo }: { id: string; motivo?: string }) => cancelarReserva(id, motivo),
+    onSuccess: () => invalidarAgenda(queryClient),
+  });
+}
+
+export function useCancelarMinhaReserva() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cancelarMinhaReserva(id),
     onSuccess: () => invalidarAgenda(queryClient),
   });
 }

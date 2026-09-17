@@ -5,7 +5,9 @@ import AgendamentosPage from './AgendamentosPage';
 import type { HorarioDisponivel, Reserva, Sala } from '../types/agendamento.types';
 
 const cancelarMutation = { mutate: vi.fn(), isPending: false };
+const cancelarMinhaMutation = { mutate: vi.fn(), isPending: false };
 const confirmarMutation = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
+const createMinhaMutation = { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false };
 
 const sala: Sala = {
   id: 'sala1',
@@ -50,12 +52,21 @@ const horarios: HorarioDisponivel[] = [
 let salas: Sala[] = [sala];
 let papel: 'ADMIN' | 'USER' = 'ADMIN';
 let reservas: Reserva[] = [reserva];
+let permiteSolicitacaoColaborador = false;
 
 vi.mock('../hooks/useAgendamento', () => ({
   useSalas: () => ({ data: salas, isError: false, isLoading: false, refetch: vi.fn() }),
+  useAgendamentoConfig: () => ({
+    data: { permiteSolicitacaoColaborador },
+    isError: false,
+    isLoading: false,
+    refetch: vi.fn(),
+  }),
   useReservas: () => ({ data: reservas, isError: false, isLoading: false, refetch: vi.fn() }),
   useHorarios: () => ({ data: horarios, isError: false, isLoading: false }),
   useCancelarReserva: () => cancelarMutation,
+  useCancelarMinhaReserva: () => cancelarMinhaMutation,
+  useCreateMinhaReserva: () => createMinhaMutation,
   useCreateReserva: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateReserva: () => confirmarMutation,
   useCreateSala: () => ({ mutateAsync: vi.fn().mockResolvedValue({}), isPending: false }),
@@ -81,6 +92,7 @@ describe('AgendamentosPage', () => {
     salas = [sala];
     papel = 'ADMIN';
     reservas = [reserva];
+    permiteSolicitacaoColaborador = false;
   });
 
   afterEach(() => {
@@ -174,8 +186,29 @@ describe('AgendamentosPage', () => {
     render(<AgendamentosPage />);
 
     expect(screen.queryByRole('button', { name: 'Nova reserva' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Solicitar sala' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancelar reserva de Ana Lima' })).not.toBeInTheDocument();
     expect(screen.getByText('Ana Lima')).toBeInTheDocument();
+  });
+
+  it('oferece solicitação ao colaborador somente quando a configuração está ligada', async () => {
+    papel = 'USER';
+    permiteSolicitacaoColaborador = true;
+    render(<AgendamentosPage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Solicitar sala' }));
+    expect(screen.getByRole('dialog', { name: 'Solicitar reserva de sala' })).toBeInTheDocument();
+  });
+
+  it('permite ao colaborador cancelar somente a própria solicitação pendente', async () => {
+    papel = 'USER';
+    reservas = [{ ...reserva, solicitanteId: 'admin1', status: 'SOLICITADA' }];
+    render(<AgendamentosPage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar solicitação de Sala Azul' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar solicitação' }));
+
+    expect(cancelarMinhaMutation.mutate).toHaveBeenCalledWith('r1', expect.anything());
   });
 
   it('oferece cadastrar a primeira sala direto na tela, sem sair para Configurações', async () => {

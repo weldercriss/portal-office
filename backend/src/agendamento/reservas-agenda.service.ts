@@ -271,7 +271,7 @@ export class ReservasAgendaService implements OnModuleInit {
 
   /** Quem recebe o evento: reserva viva, pessoa ativa e sincronização ligada. */
   private destinatario(reserva: ReservaParaAgenda | null) {
-    if (!reserva || reserva.status === ReservaStatus.CANCELADA) return null;
+    if (!reserva || reserva.status !== ReservaStatus.CONFIRMADA) return null;
     const solicitante = reserva.solicitante;
     if (!solicitante.ativo || !solicitante.agendaGoogleAtiva) return null;
     return solicitante;

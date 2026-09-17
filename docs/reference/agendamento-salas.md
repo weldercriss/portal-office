@@ -1,9 +1,10 @@
 # Agendamento de salas
 
 O admin cadastra as salas e em que dias e horários cada uma pode ser reservada.
-Conforme as solicitações chegam, ele registra a reserva: o horário escolhido sai
-da lista de disponíveis e só volta se a reserva for cancelada. Cada reserva
-guarda quem pediu, a data, a sala, o horário inicial e final e o status.
+Ele também decide, por uma configuração global, se o colaborador pode solicitar
+uma sala para si. O horário de uma solicitação já sai da lista de disponíveis e
+só volta se ela for cancelada; a Agenda Google só recebe o evento depois da
+confirmação administrativa.
 
 Quem tem a agenda Google conectada em *Meu perfil* recebe a reserva como evento
 na própria agenda, pelo mesmo caminho já usado pelos plantões.
@@ -36,20 +37,23 @@ excluir apaga o histórico e existe só para engano de digitação. Sala com res
 registrada não pode ser excluída — desative-a para tirá-la das novas reservas.
 
 **Quem faz o quê.** Consultar as salas, a grade e as reservas é de quem tem a
-rotina `agendamentos`. Registrar, editar, cancelar e excluir é do admin, que é
-quem recebe as solicitações hoje. Cadastrar salas fica em *Configurações →
-Salas*.
+rotina `agendamentos`. O admin registra reservas diretamente, confirma ou
+cancela solicitações, edita e exclui. Quando habilitado em *Configurações →
+Salas*, o colaborador pode solicitar somente para si; o backend impõe o status
+`SOLICITADA` e permite que ele cancele somente o próprio pedido ainda pendente.
 
-**Notificações.** O solicitante é avisado quando a reserva é criada, quando o
-horário muda e quando é cancelada (`RESERVA_SALA_CRIADA`,
-`RESERVA_SALA_ATUALIZADA`, `RESERVA_SALA_CANCELADA`). Os três nascem desligados
-no Telegram e podem ser ligados em *Configurações → Telegram*.
+**Notificações.** Ao solicitar, o colaborador recebe a confirmação interna do
+envio e os administradores recebem o novo pedido (`RESERVA_SALA_SOLICITADA`). O
+solicitante também é avisado quando a reserva é criada, confirmada, atualizada ou
+cancelada. Os tipos do Telegram nascem desligados e podem ser ligados em
+*Configurações → Telegram*.
 
 ## Agenda Google
 
-Reserva viva de quem conectou a agenda e mantém a sincronização ligada vira
-evento na agenda dessa pessoa. Cancelar, excluir ou trocar o solicitante remove
-o evento de quem saiu.
+Somente reserva `CONFIRMADA` de quem conectou a agenda e mantém a sincronização
+ligada vira evento na agenda dessa pessoa. `SOLICITADA` ocupa a sala, mas não é
+publicada enquanto aguarda o admin. Cancelar, excluir ou trocar o solicitante
+remove o evento de quem saiu.
 
 O caminho é o mesmo dos plantões e depende da mesma configuração descrita em
 [agenda-google.md](agenda-google.md) — nenhuma variável nova. Com
@@ -85,6 +89,10 @@ outros portais entram na v2, sem prender este contrato.
 | `POST` `PATCH` `DELETE` | `/v1/agendamento/salas[/:id][/permanent]` | ADMIN |
 | `GET` | `/v1/agendamento/reservas?salaId=&solicitanteId=&status=&from=&to=` | rotina |
 | `GET` | `/v1/agendamento/reservas/minhas` | rotina |
+| `GET` | `/v1/agendamento/config` | rotina |
+| `PUT` | `/v1/agendamento/config` | ADMIN |
+| `POST` | `/v1/agendamento/reservas/minhas` | rotina, se a configuração permitir |
+| `POST` | `/v1/agendamento/reservas/:id/cancelar-minha` | dono da solicitação pendente |
 | `POST` `PATCH` `DELETE` | `/v1/agendamento/reservas[/:id]` | ADMIN |
 | `POST` | `/v1/agendamento/reservas/:id/cancelar` | ADMIN |
 
@@ -98,10 +106,12 @@ UTC+0.
 
 ## Ativação
 
-1. Aplique a migration `20260909230000_agendamento_salas`. Ela cria as tabelas,
-   semeia a rotina `agendamentos` (ligada a todos os departamentos existentes,
-   para não travar acesso) e os três tipos de notificação.
-2. Cadastre as salas e as janelas em *Configurações → Salas*.
+1. Aplique as migrations `20260909230000_agendamento_salas` e
+   `20260917044610_permite_solicitacao_sala_colaborador`. Elas criam as tabelas,
+   semeiam a rotina `agendamentos`, os tipos de notificação e a configuração
+   global, cujo valor efetivo começa desligado mesmo antes de existir uma linha.
+2. Cadastre as salas e as janelas em *Configurações → Salas* e escolha se os
+   colaboradores podem solicitar.
 3. Ajuste a rotina por departamento em *Configurações → Permissões*, se quiser
    restringir quem enxerga a agenda das salas.
 

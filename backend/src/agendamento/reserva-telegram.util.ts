@@ -2,6 +2,7 @@ import { escaparTelegramHtml } from '../telegram/telegram-html.util';
 import { ReservaDestinatarios } from '@prisma/client';
 
 const EMOJI_TIPO: Record<string, string> = {
+  RESERVA_SALA_SOLICITADA: '📝',
   RESERVA_SALA_CRIADA: '🗓️',
   RESERVA_SALA_CONFIRMADA: '✅',
   RESERVA_SALA_ATUALIZADA: '✏️',

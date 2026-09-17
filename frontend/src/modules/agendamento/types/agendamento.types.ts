@@ -1,6 +1,10 @@
 export type ReservaStatus = 'SOLICITADA' | 'CONFIRMADA' | 'CANCELADA';
 export type ReservaDestinatarios = 'SOLICITANTE' | 'RESPONSAVEL' | 'AMBOS';
 
+export interface AgendamentoConfig {
+  permiteSolicitacaoColaborador: boolean;
+}
+
 /** 0 = domingo, na mesma convenção de `Date.getUTCDay()` usada pelo backend. */
 export const DIAS_SEMANA: { value: number; label: string; curto: string }[] = [
   { value: 0, label: 'Domingo', curto: 'Dom' },
@@ -93,6 +97,17 @@ export interface CreateReservaInput {
   titulo?: string;
   observacoes?: string;
   status?: ReservaStatus;
+  notificarTelegram?: boolean;
+}
+
+/** Contrato pessoal: identidade e status sao definidos pela API. */
+export interface CreateReservaColaboradorInput {
+  salaId: string;
+  data: string;
+  horaInicio: string;
+  horaFim: string;
+  titulo?: string;
+  observacoes?: string;
   notificarTelegram?: boolean;
 }
 

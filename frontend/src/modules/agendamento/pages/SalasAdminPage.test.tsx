@@ -7,6 +7,7 @@ import type { Sala } from '../types/agendamento.types';
 const createMutation = { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false };
 const updateMutation = { mutateAsync: vi.fn().mockResolvedValue({}), mutate: vi.fn(), isPending: false };
 const deleteMutation = { mutate: vi.fn(), isPending: false };
+const updateConfigMutation = { mutate: vi.fn(), isPending: false };
 
 const sala: Sala = {
   id: 'sala1',
@@ -20,6 +21,13 @@ const sala: Sala = {
 };
 
 vi.mock('../hooks/useAgendamento', () => ({
+  useAgendamentoConfig: () => ({
+    data: { permiteSolicitacaoColaborador: false },
+    isError: false,
+    isLoading: false,
+    refetch: vi.fn(),
+  }),
+  useUpdateAgendamentoConfig: () => updateConfigMutation,
   useSalas: () => ({ data: [sala], isError: false, isLoading: false, refetch: vi.fn() }),
   useCreateSala: () => createMutation,
   useUpdateSala: () => updateMutation,
@@ -36,6 +44,17 @@ describe('SalasAdminPage', () => {
     render(<SalasAdminPage />);
     expect(screen.getByText('Sala Azul')).toBeInTheDocument();
     expect(screen.getByText('Seg 09:00–18:00')).toBeInTheDocument();
+  });
+
+  it('permite habilitar solicitações de sala pelos colaboradores', async () => {
+    render(<SalasAdminPage />);
+
+    await userEvent.click(screen.getByLabelText('Permitir que colaboradores solicitem salas'));
+
+    expect(updateConfigMutation.mutate).toHaveBeenCalledWith(
+      { permiteSolicitacaoColaborador: true },
+      expect.anything(),
+    );
   });
 
   it('cadastra uma sala com uma janela de disponibilidade', async () => {

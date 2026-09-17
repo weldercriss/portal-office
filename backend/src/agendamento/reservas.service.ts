@@ -1,10 +1,12 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ReservaDestinatarios, ReservaStatus } from '@prisma/client';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgendamentoGateway } from './agendamento.gateway';
+import { AgendamentoConfigService } from './agendamento-config.service';
 import { dataUtc, dentroDaDisponibilidade, emMinutos } from './disponibilidade.util';
 import { CreateReservaDto, UpdateReservaDto } from './dto/reserva.dto';
+import { CreateReservaColaboradorDto } from './dto/reserva-colaborador.dto';
 import { estadoTemporalReserva } from './reserva-instante.util';
 import { destinatariosReserva, DestinatariosReserva } from './reserva-destinatarios.util';
 import { formatarDataBr, textoGrupoReserva } from './reserva-telegram.util';
@@ -51,6 +53,7 @@ export class ReservasService {
     private readonly notificacoesService: NotificacoesService,
     private readonly agenda: ReservasAgendaService,
     private readonly agendamentoGateway: AgendamentoGateway,
+    private readonly configService: AgendamentoConfigService,
   ) {}
 
   findAll(filtros: FiltrosReserva) {
@@ -77,6 +80,27 @@ export class ReservasService {
   }
 
   async create(dto: CreateReservaDto, registradoPorId: string) {
+    return this.criar(dto, registradoPorId);
+  }
+
+  async createSolicitacao(dto: CreateReservaColaboradorDto, userId: string) {
+    if (!(await this.configService.permiteSolicitacaoColaborador())) {
+      throw new ForbiddenException('A solicitação de salas por colaboradores está desabilitada');
+    }
+
+    return this.criar(
+      {
+        ...dto,
+        solicitanteId: userId,
+        responsavelId: null,
+        destinatariosNotificacao: ReservaDestinatarios.SOLICITANTE,
+        status: ReservaStatus.SOLICITADA,
+      },
+      userId,
+    );
+  }
+
+  private async criar(dto: CreateReservaDto, registradoPorId: string) {
     if (dto.status === ReservaStatus.CANCELADA) {
       throw new BadRequestException('Uma reserva não pode ser criada já cancelada');
     }
@@ -113,8 +137,18 @@ export class ReservasService {
       include: RESERVA_INCLUDE,
     });
 
-    await this.avisarDestinatarios(reserva, 'RESERVA_SALA_CRIADA', 'Sala reservada');
-    await this.agenda.enfileirar([reserva.id]);
+    if (reserva.status === ReservaStatus.SOLICITADA) {
+      await this.avisarDestinatarios(reserva, 'RESERVA_SALA_SOLICITADA', 'Solicitação de sala enviada');
+      await this.notificacoesService.criarParaAdmins({
+        tipo: 'RESERVA_SALA_SOLICITADA',
+        titulo: 'Nova solicitação de sala',
+        mensagem: `${reserva.solicitante.nome} solicitou ${reserva.sala.nome} em ${formatarDataBr(reserva.data)}, ${reserva.horaInicio} às ${reserva.horaFim}`,
+        link: '/agendamentos',
+      });
+    } else {
+      await this.avisarDestinatarios(reserva, 'RESERVA_SALA_CRIADA', 'Sala reservada');
+      await this.agenda.enfileirar([reserva.id]);
+    }
     this.agendamentoGateway.avisarMudancaDeReserva();
     return reserva;
   }
@@ -194,6 +228,17 @@ export class ReservasService {
   /** Cancelar é o caminho normal: mantém o registro e libera o horário. */
   cancelar(id: string, motivo?: string) {
     return this.update(id, { status: ReservaStatus.CANCELADA, motivoCancelamento: motivo });
+  }
+
+  async cancelarMinhaSolicitacao(id: string, userId: string) {
+    const atual = await this.findOne(id);
+    if (atual.solicitanteId !== userId) {
+      throw new ForbiddenException('Você só pode cancelar sua própria solicitação de sala');
+    }
+    if (atual.status !== ReservaStatus.SOLICITADA) {
+      throw new BadRequestException('Só é possível cancelar uma solicitação de sala ainda pendente');
+    }
+    return this.cancelar(id);
   }
 
   async remove(id: string) {

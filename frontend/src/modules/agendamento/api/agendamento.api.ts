@@ -1,5 +1,7 @@
 import { httpClient } from '../../../api/httpClient';
 import type {
+  AgendamentoConfig,
+  CreateReservaColaboradorInput,
   CreateReservaInput,
   CreateSalaInput,
   FiltrosReserva,
@@ -12,6 +14,14 @@ import type {
 
 /** v1 é o contrato do painel interno; integrações com outros portais entram na v2. */
 const BASE = '/v1/agendamento';
+
+export function getAgendamentoConfig() {
+  return httpClient<AgendamentoConfig>(`${BASE}/config`);
+}
+
+export function updateAgendamentoConfig(input: AgendamentoConfig) {
+  return httpClient<AgendamentoConfig>(`${BASE}/config`, { method: 'PUT', body: input });
+}
 
 function query(params: Record<string, string | undefined>) {
   const busca = new URLSearchParams();
@@ -59,6 +69,10 @@ export function createReserva(input: CreateReservaInput) {
   return httpClient<Reserva>(`${BASE}/reservas`, { method: 'POST', body: input });
 }
 
+export function createMinhaReserva(input: CreateReservaColaboradorInput) {
+  return httpClient<Reserva>(`${BASE}/reservas/minhas`, { method: 'POST', body: input });
+}
+
 export function updateReserva(id: string, input: UpdateReservaInput) {
   return httpClient<Reserva>(`${BASE}/reservas/${id}`, { method: 'PATCH', body: input });
 }
@@ -69,6 +83,10 @@ export function cancelarReserva(id: string, motivoCancelamento?: string) {
     method: 'POST',
     body: { motivoCancelamento },
   });
+}
+
+export function cancelarMinhaReserva(id: string) {
+  return httpClient<Reserva>(`${BASE}/reservas/${id}/cancelar-minha`, { method: 'POST' });
 }
 
 export function deleteReserva(id: string) {

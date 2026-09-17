@@ -18,6 +18,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /** Tipos que hoje sabem montar um texto pro grupo (ver reserva-telegram.util.ts). */
 const TIPOS_COM_GRUPO = new Set([
+  'RESERVA_SALA_SOLICITADA',
   'RESERVA_SALA_CRIADA',
   'RESERVA_SALA_CONFIRMADA',
   'RESERVA_SALA_ATUALIZADA',

@@ -18,7 +18,16 @@ import { useAuth } from '../../../shared/auth/AuthContext';
 import { GradeHorarios } from '../components/GradeHorarios';
 import { ReservaDialog } from '../components/ReservaDialog';
 import { SalaDialog } from '../components/SalaDialog';
-import { useCancelarReserva, useHorarios, useReservas, useSalas, useUpdateReserva } from '../hooks/useAgendamento';
+import { SolicitarReservaDialog } from '../components/SolicitarReservaDialog';
+import {
+  useAgendamentoConfig,
+  useCancelarMinhaReserva,
+  useCancelarReserva,
+  useHorarios,
+  useReservas,
+  useSalas,
+  useUpdateReserva,
+} from '../hooks/useAgendamento';
 import { useAgendamentoSocket } from '../hooks/useAgendamentoSocket';
 import type { Reserva, ReservaStatus, Sala } from '../types/agendamento.types';
 import { STATUS_RESERVA } from '../types/agendamento.types';
@@ -52,6 +61,7 @@ export default function AgendamentosPage() {
   const [salaId, setSalaId] = useState('');
   const [status, setStatus] = useState<ReservaStatus | ''>('');
   const [dialogAberto, setDialogAberto] = useState(false);
+  const [solicitacaoDialogAberto, setSolicitacaoDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Reserva | null>(null);
   const [paraCancelar, setParaCancelar] = useState<Reserva | null>(null);
   const [motivo, setMotivo] = useState('');
@@ -60,6 +70,7 @@ export default function AgendamentosPage() {
   const [salaEmEdicao, setSalaEmEdicao] = useState<Sala | null>(null);
 
   const salasQuery = useSalas();
+  const configQuery = useAgendamentoConfig();
   const reservasQuery = useReservas({
     from: data,
     to: data,
@@ -67,6 +78,7 @@ export default function AgendamentosPage() {
     status: status || undefined,
   });
   const cancelarMutation = useCancelarReserva();
+  const cancelarMinhaMutation = useCancelarMinhaReserva();
   const confirmarMutation = useUpdateReserva();
 
   const salas = salasQuery.data ?? [];
@@ -76,6 +88,10 @@ export default function AgendamentosPage() {
   const horariosQuery = useHorarios(salaDaGrade || undefined, data);
 
   const reservas = useMemo(() => reservasQuery.data ?? [], [reservasQuery.data]);
+  const podeSolicitar = user?.role === 'USER' && configQuery.data?.permiteSolicitacaoColaborador === true;
+  const podeCancelarMinha = (reserva: Reserva) =>
+    user?.role === 'USER' && reserva.solicitanteId === user.id && reserva.status === 'SOLICITADA';
+  const temAcoes = podeGerenciar || reservas.some(podeCancelarMinha);
 
   function abrirNova() {
     setEmEdicao(null);
@@ -114,19 +130,28 @@ export default function AgendamentosPage() {
   function confirmarCancelamento() {
     if (!paraCancelar) return;
     setErroLista(null);
-    cancelarMutation.mutate(
-      { id: paraCancelar.id, motivo: motivo.trim() || undefined },
-      {
+    const onSuccess = () => {
+      setParaCancelar(null);
+      setMotivo('');
+    };
+    const onError = (error: unknown) => {
+      setParaCancelar(null);
+      setErroLista(error instanceof Error ? error.message : 'Não foi possível cancelar a reserva.');
+    };
+
+    if (podeGerenciar) {
+      cancelarMutation.mutate(
+        { id: paraCancelar.id, motivo: motivo.trim() || undefined },
+        { onSuccess, onError },
+      );
+    } else {
+      cancelarMinhaMutation.mutate(paraCancelar.id, {
         onSuccess: () => {
-          setParaCancelar(null);
-          setMotivo('');
+          onSuccess();
         },
-        onError: (error) => {
-          setParaCancelar(null);
-          setErroLista(error instanceof Error ? error.message : 'Não foi possível cancelar a reserva.');
-        },
-      },
-    );
+        onError,
+      });
+    }
   }
 
   if (salasQuery.isError) {
@@ -158,6 +183,8 @@ export default function AgendamentosPage() {
               </Button>
               {salas.length > 0 && <Button onClick={abrirNova}>Nova reserva</Button>}
             </>
+          ) : podeSolicitar && salas.length > 0 ? (
+            <Button onClick={() => setSolicitacaoDialogAberto(true)}>Solicitar sala</Button>
           ) : undefined
         }
       />
@@ -252,7 +279,7 @@ export default function AgendamentosPage() {
                     <Th>Data</Th>
                     <Th>Horário</Th>
                     <Th>Status</Th>
-                    {podeGerenciar && <Th className="text-right">Ações</Th>}
+                    {temAcoes && <Th className="text-right">Ações</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -277,9 +304,9 @@ export default function AgendamentosPage() {
                           {STATUS_RESERVA.find((opcao) => opcao.value === reserva.status)?.label ?? reserva.status}
                         </Badge>
                       </Td>
-                      {podeGerenciar && (
+                      {temAcoes && (
                         <Td className="text-right">
-                          {(() => {
+                          {podeGerenciar ? (() => {
                             if (reserva.status === 'CANCELADA') return null;
 
                             // Solicitada ainda não foi decidida: segue editável mesmo com o horário já passado.
@@ -337,7 +364,19 @@ export default function AgendamentosPage() {
                                 </Button>
                               </div>
                             );
-                          })()}
+                          })() : podeCancelarMinha(reserva) ? (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              className="gap-1.5"
+                              onClick={() => setParaCancelar(reserva)}
+                              aria-label={`Cancelar solicitação de ${reserva.sala.nome}`}
+                              title="Cancelar solicitação"
+                            >
+                              <CalendarX2 aria-hidden="true" className="h-3.5 w-3.5" />
+                              Cancelar solicitação
+                            </Button>
+                          ) : null}
                         </Td>
                       )}
                     </Tr>
@@ -368,32 +407,53 @@ export default function AgendamentosPage() {
         </>
       )}
 
+      {podeSolicitar && (
+        <SolicitarReservaDialog
+          open={solicitacaoDialogAberto}
+          onOpenChange={setSolicitacaoDialogAberto}
+          salas={salas}
+          dataPadrao={data}
+          salaPadrao={salaId || undefined}
+        />
+      )}
+
       <Dialog
         open={!!paraCancelar}
         onOpenChange={(aberto) => !aberto && setParaCancelar(null)}
-        title="Cancelar reserva"
+        title={podeGerenciar ? 'Cancelar reserva' : 'Cancelar solicitação'}
       >
         <div className="flex flex-col gap-5">
           <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
-            Cancelar a reserva de <strong>{paraCancelar?.solicitante.nome}</strong> em{' '}
-            <strong>{paraCancelar?.sala.nome}</strong>? O horário volta a ficar disponível e o evento sai da agenda de
-            quem pediu.
+            {podeGerenciar ? (
+              <>
+                Cancelar a reserva de <strong>{paraCancelar?.solicitante.nome}</strong> em{' '}
+                <strong>{paraCancelar?.sala.nome}</strong>? O horário volta a ficar disponível e o evento sai da agenda de
+                quem pediu.
+              </>
+            ) : (
+              <>
+                Cancelar sua solicitação para <strong>{paraCancelar?.sala.nome}</strong>? O horário voltará a ficar
+                disponível.
+              </>
+            )}
           </p>
-          <FormField label="Motivo (opcional)" htmlFor="motivo-cancelamento">
-            <Input
-              id="motivo-cancelamento"
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-              maxLength={300}
-              placeholder="Sala em manutenção"
-            />
-          </FormField>
+          {podeGerenciar && (
+            <FormField label="Motivo (opcional)" htmlFor="motivo-cancelamento">
+              <Input
+                id="motivo-cancelamento"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                maxLength={300}
+                placeholder="Sala em manutenção"
+              />
+            </FormField>
+          )}
           <FormActions>
             <Button
               type="button"
               variant="secondary"
               onClick={() => setParaCancelar(null)}
-              disabled={cancelarMutation.isPending}
+              disabled={cancelarMutation.isPending || cancelarMinhaMutation.isPending}
             >
               Voltar
             </Button>
@@ -401,9 +461,13 @@ export default function AgendamentosPage() {
               type="button"
               variant="danger"
               onClick={confirmarCancelamento}
-              disabled={cancelarMutation.isPending}
+              disabled={cancelarMutation.isPending || cancelarMinhaMutation.isPending}
             >
-              {cancelarMutation.isPending ? 'Cancelando...' : 'Cancelar reserva'}
+              {cancelarMutation.isPending || cancelarMinhaMutation.isPending
+                ? 'Cancelando...'
+                : podeGerenciar
+                  ? 'Cancelar reserva'
+                  : 'Cancelar solicitação'}
             </Button>
           </FormActions>
         </div>
