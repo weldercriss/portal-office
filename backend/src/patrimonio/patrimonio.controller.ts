@@ -263,14 +263,16 @@ export class AlocacoesController {
     return this.alocacoesService.remove(id);
   }
 
-  /** Termo de responsabilidade assinado: PDF, DOC ou DOCX. */
+  /**
+   * Termo de responsabilidade assinado: PDF, DOC ou DOCX. Quem assina no
+   * Clicksign é o colaborador, então ele também pode importar o PDF e
+   * confirmar o aceite aqui — o admin consegue lançar em nome dele também.
+   */
   @Post(':id/termo')
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
   @UseInterceptors(FileInterceptor('termo', TERMO_MULTER_OPTIONS))
-  anexarTermo(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+  anexarTermo(@Param('id') id: string, @UploadedFile() file: Express.Multer.File, @Req() req: Request) {
     if (!file) throw new BadRequestException('Envie o termo assinado');
-    return this.alocacoesService.anexarTermo(id, file);
+    return this.alocacoesService.anexarTermo(id, file, usuario(req));
   }
 
   @Delete(':id/termo')

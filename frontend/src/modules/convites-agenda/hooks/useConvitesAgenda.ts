@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   cancelarConviteAgenda,
   createConviteAgenda,
+  deleteConviteAgenda,
   getColaboradoresParaConvite,
   getConviteAgenda,
   getConvitesAgenda,
@@ -82,6 +83,14 @@ export function useSincronizarRespostasConviteAgenda() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => sincronizarRespostasConviteAgenda(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CONVITES_KEY }),
+  });
+}
+
+export function useDeleteConviteAgenda() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteConviteAgenda(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CONVITES_KEY }),
   });
 }

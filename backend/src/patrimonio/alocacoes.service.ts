@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AlocacaoStatus, EquipamentoStatus, Prisma, StatusColaborador } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
@@ -254,12 +254,17 @@ export class AlocacoesService {
 
   /**
    * Anexa o termo assinado. Chegar o documento é o que faz o registro virar
-   * ASSINADO — foi para isso que o RH pediu o campo.
+   * ASSINADO — foi para isso que o RH pediu o campo. É também aqui que o
+   * próprio colaborador confirma o aceite: ele assina no Clicksign e importa
+   * o PDF de volta na plataforma; o admin pode fazer o mesmo lançamento por ele.
    */
-  async anexarTermo(id: string, file: Express.Multer.File) {
+  async anexarTermo(id: string, file: Express.Multer.File, usuarioAtual: UsuarioAtual) {
     const atual = await this.findOne(id);
     if (STATUS_ENCERRADOS.includes(atual.status)) {
       throw new ConflictException('Este registro já foi encerrado');
+    }
+    if (!ehAdminOuSuperior(usuarioAtual.role) && usuarioAtual.id !== atual.colaboradorId) {
+      throw new ForbiddenException('Você só pode anexar o termo dos seus próprios equipamentos');
     }
 
     // Um termo por registro: o novo substitui o anterior no disco também.

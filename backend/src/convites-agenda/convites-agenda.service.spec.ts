@@ -9,7 +9,7 @@ describe('ConvitesAgendaService', () => {
   };
   const prismaMock = {
     user: { findMany: jest.fn(), findUnique: jest.fn() },
-    conviteAgendaEvento: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    conviteAgendaEvento: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
     conviteAgendaDestinatario: { update: jest.fn(), updateMany: jest.fn() },
     $transaction: jest.fn((callback: (tx: typeof txMock) => unknown) => callback(txMock)),
   };
@@ -331,6 +331,19 @@ describe('ConvitesAgendaService', () => {
     it('recusa sincronizar convite que nunca foi enviado', async () => {
       prismaMock.conviteAgendaEvento.findUnique.mockResolvedValueOnce({ ...CONVITE_NOVO, eventId: null, calendarId: null });
       await expect(service.sincronizarRespostas('c1')).rejects.toThrow('ainda não tem um evento enviado');
+    });
+  });
+
+  describe('remover', () => {
+    it('exclui o convite', async () => {
+      await service.remover('c1');
+      expect(prismaMock.conviteAgendaEvento.delete).toHaveBeenCalledWith({ where: { id: 'c1' } });
+    });
+
+    it('rejeita convite inexistente', async () => {
+      prismaMock.conviteAgendaEvento.findUnique.mockResolvedValueOnce(null);
+      await expect(service.remover('inexistente')).rejects.toThrow('Convite não encontrado');
+      expect(prismaMock.conviteAgendaEvento.delete).not.toHaveBeenCalled();
     });
   });
 });

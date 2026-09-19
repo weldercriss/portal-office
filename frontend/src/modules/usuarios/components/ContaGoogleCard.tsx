@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { HttpError } from '../../../api/httpClient';
 import { Button } from '../../../components/ui/Button';
-import { Card } from '../../../components/ui/Card';
 import { Dialog } from '../../../components/ui/Dialog';
 import { FormField } from '../../../components/ui/Form';
 import { Input } from '../../../components/ui/Input';
@@ -59,29 +58,27 @@ export function ContaGoogleCard({ email, googleLinkedAt }: { email: string; goog
 
   return (
     <>
-      <Card elevated className="p-6">
-        <h2 className="text-[13px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">Conta Google</h2>
+      <h2 className="text-[13px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">Conta Google</h2>
 
-        {googleLinkedAt ? (
-          <p className="mt-3 flex items-start gap-2 text-sm text-[var(--color-text-secondary)]">
-            <CheckCircle2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-success)]" />
-            <span>
-              <strong className="text-[var(--color-text-primary)]">{email}</strong> vinculado em{' '}
-              {formatarDataHora(googleLinkedAt)}. Você já pode entrar no portal com o botão do Google.
-            </span>
+      {googleLinkedAt ? (
+        <p className="mt-3 flex items-start gap-2 text-sm text-[var(--color-text-secondary)]">
+          <CheckCircle2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-success)]" />
+          <span>
+            <strong className="text-[var(--color-text-primary)]">{email}</strong> vinculado em{' '}
+            {formatarDataHora(googleLinkedAt)}. Você já pode entrar no portal com o botão do Google.
+          </span>
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-col items-start gap-4">
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            Vincule sua conta Google <strong className="text-[var(--color-text-primary)]">{email}</strong> para entrar
+            sem digitar a senha. O login por senha continua disponível.
           </p>
-        ) : (
-          <div className="mt-3 flex flex-col items-start gap-4">
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              Vincule sua conta Google <strong className="text-[var(--color-text-primary)]">{email}</strong> para entrar
-              sem digitar a senha. O login por senha continua disponível.
-            </p>
-            <Button type="button" onClick={abrirDialog}>
-              Vincular Google
-            </Button>
-          </div>
-        )}
-      </Card>
+          <Button type="button" onClick={abrirDialog}>
+            Vincular Google
+          </Button>
+        </div>
+      )}
 
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto} title="Vincular conta Google">
         <div className="flex flex-col gap-4">

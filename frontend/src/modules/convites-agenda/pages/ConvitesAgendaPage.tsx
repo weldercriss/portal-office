@@ -7,13 +7,17 @@ import { Card } from '../../../components/ui/Card';
 import { Dialog } from '../../../components/ui/Dialog';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
+import { FormActions } from '../../../components/ui/Form';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
+import { useAuth } from '../../../shared/auth/AuthContext';
+import { satisfazRole } from '../../../types/auth.types';
 import { ConviteAgendaDialog } from '../components/ConviteAgendaDialog';
 import {
   useCancelarConviteAgenda,
   useConvitesAgenda,
+  useDeleteConviteAgenda,
   useReenviarConviteAgenda,
   useSincronizarRespostasConviteAgenda,
 } from '../hooks/useConvitesAgenda';
@@ -61,15 +65,19 @@ function resumoLegado(convite: ConviteAgenda) {
 }
 
 export default function ConvitesAgendaPage() {
+  const { user } = useAuth();
+  const ehMaster = satisfazRole(user?.role, 'MASTER');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<ConviteAgenda | null>(null);
   const [detalhado, setDetalhado] = useState<ConviteAgenda | null>(null);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
+  const [paraExcluir, setParaExcluir] = useState<ConviteAgenda | null>(null);
 
   const convitesQuery = useConvitesAgenda();
   const cancelarMutation = useCancelarConviteAgenda();
   const reenviarMutation = useReenviarConviteAgenda();
   const sincronizarMutation = useSincronizarRespostasConviteAgenda();
+  const deleteMutation = useDeleteConviteAgenda();
 
   const convites = useMemo(() => convitesQuery.data ?? [], [convitesQuery.data]);
 
@@ -104,6 +112,14 @@ export default function ConvitesAgendaPage() {
     sincronizarMutation.mutate(id, {
       onSuccess: (atualizado) => setDetalhado((atual) => (atual?.id === id ? atualizado : atual)),
       onError: () => setErroAcao('Não foi possível atualizar as respostas.'),
+    });
+  }
+
+  function confirmarExclusao() {
+    if (!paraExcluir) return;
+    deleteMutation.mutate(paraExcluir.id, {
+      onSuccess: () => setParaExcluir(null),
+      onError: () => setErroAcao('Não foi possível excluir o convite.'),
     });
   }
 
@@ -212,6 +228,11 @@ export default function ConvitesAgendaPage() {
                             )}
                           </>
                         )}
+                        {ehMaster && (
+                          <Button variant="danger" size="sm" onClick={() => setParaExcluir(convite)}>
+                            Excluir
+                          </Button>
+                        )}
                       </div>
                     </Td>
                   </Tr>
@@ -280,6 +301,24 @@ export default function ConvitesAgendaPage() {
             </div>
           </div>
         )}
+      </Dialog>
+
+      <Dialog open={!!paraExcluir} onOpenChange={(open) => !open && setParaExcluir(null)} title="Excluir convite">
+        <div className="flex flex-col gap-5">
+          <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+            Excluir permanentemente "{paraExcluir?.titulo}"? O registro some do portal — não dá para desfazer. Se o evento
+            ainda estiver ativo na Agenda Google, cancele antes para os convidados não ficarem com um compromisso que o
+            portal já esqueceu.
+          </p>
+          <FormActions>
+            <Button type="button" variant="secondary" onClick={() => setParaExcluir(null)} disabled={deleteMutation.isPending}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="danger" onClick={confirmarExclusao} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? 'Excluindo...' : 'Excluir permanentemente'}
+            </Button>
+          </FormActions>
+        </div>
       </Dialog>
     </PageShell>
   );

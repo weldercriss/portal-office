@@ -51,3 +51,7 @@ export function cancelarConviteAgenda(id: string) {
 export function sincronizarRespostasConviteAgenda(id: string) {
   return httpClient<ConviteAgenda>(`${BASE}/${id}/sincronizar-respostas`, { method: 'POST' });
 }
+
+export function deleteConviteAgenda(id: string) {
+  return httpClient<{ success: boolean }>(`${BASE}/${id}`, { method: 'DELETE' });
+}

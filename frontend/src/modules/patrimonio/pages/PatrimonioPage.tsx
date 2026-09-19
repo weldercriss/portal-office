@@ -223,7 +223,7 @@ export default function PatrimonioPage() {
         actions={
           isAdmin ? (
             <>
-              <Button variant="secondary" className="gap-1.5" onClick={() => navigate('/configuracoes/tipos-equipamento')}>
+              <Button variant="secondary" className="gap-1.5" onClick={() => navigate('/configuracoes/tipos-e-categorias/equipamento')}>
                 <Settings aria-hidden="true" className="h-4 w-4" />
                 Configurar tipos
               </Button>

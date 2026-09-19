@@ -138,6 +138,18 @@ export class ConvitesAgendaService {
   }
 
   /**
+   * Exclusão definitiva do registro local (destinatários somem junto, por
+   * cascade) — reservada ao MASTER. Não mexe no evento do Google: se ainda
+   * estiver ativo lá, cancele antes para não deixar convidados com um
+   * compromisso que o portal já esqueceu.
+   */
+  async remover(id: string) {
+    await this.findOne(id);
+    await this.prisma.conviteAgendaEvento.delete({ where: { id } });
+    return { success: true };
+  }
+
+  /**
    * Cria o evento único na agenda do organizador e convida cada e-mail. Sai
    * desligado por padrão (GOOGLE_CALENDAR_EMAIL_INVITES_ENABLED) até a
    * validação manual da Fase 0 do plano ser feita numa conta real.
@@ -330,7 +342,7 @@ export class ConvitesAgendaService {
     const portal = urlPortal();
     const description = [
       convite.descricao?.trim() || null,
-      portal ? `Convites de agenda: ${portal}/convites-agenda` : null,
+      portal ? `Convites de agenda: ${portal}/agenda` : null,
       'Evento criado pelo portal. Alterações feitas aqui são sobrescritas se o convite for reenviado ou editado.',
     ]
       .filter(Boolean)
@@ -430,7 +442,7 @@ export class ConvitesAgendaService {
     const portal = urlPortal();
     const description = [
       convite.descricao?.trim() || null,
-      portal ? `Convites de agenda: ${portal}/convites-agenda` : null,
+      portal ? `Convites de agenda: ${portal}/agenda` : null,
       'Evento criado pelo portal. Alterações feitas aqui são sobrescritas se o convite for reenviado.',
     ]
       .filter(Boolean)

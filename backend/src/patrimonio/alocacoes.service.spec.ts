@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -175,21 +175,58 @@ describe('AlocacoesService', () => {
     it('anexar o termo assinado marca o registro como assinado', async () => {
       prismaMock.alocacaoEquipamento.findUnique.mockResolvedValue({
         id: 'al1',
+        colaboradorId: 'u1',
         status: 'ENTREGUE',
         termoCaminho: null,
       });
       prismaMock.alocacaoEquipamento.update.mockResolvedValue({ id: 'al1' });
 
-      await service.anexarTermo('al1', {
-        originalname: 'termo.pdf',
-        filename: 'abc.pdf',
-        mimetype: 'application/pdf',
-      } as any);
+      await service.anexarTermo(
+        'al1',
+        { originalname: 'termo.pdf', filename: 'abc.pdf', mimetype: 'application/pdf' } as any,
+        { id: 'admin1', role: 'ADMIN' },
+      );
 
       expect(prismaMock.alocacaoEquipamento.update.mock.calls[0][0].data).toMatchObject({
         status: 'ASSINADO',
         termoNome: 'termo.pdf',
       });
+    });
+
+    it('o próprio colaborador pode anexar o termo do seu equipamento', async () => {
+      prismaMock.alocacaoEquipamento.findUnique.mockResolvedValue({
+        id: 'al1',
+        colaboradorId: 'u1',
+        status: 'ENTREGUE',
+        termoCaminho: null,
+      });
+      prismaMock.alocacaoEquipamento.update.mockResolvedValue({ id: 'al1' });
+
+      await service.anexarTermo(
+        'al1',
+        { originalname: 'termo.pdf', filename: 'abc.pdf', mimetype: 'application/pdf' } as any,
+        { id: 'u1', role: 'USER' },
+      );
+
+      expect(prismaMock.alocacaoEquipamento.update.mock.calls[0][0].data).toMatchObject({ status: 'ASSINADO' });
+    });
+
+    it('barra quem não é dono nem admin de anexar o termo', async () => {
+      prismaMock.alocacaoEquipamento.findUnique.mockResolvedValue({
+        id: 'al1',
+        colaboradorId: 'u1',
+        status: 'ENTREGUE',
+        termoCaminho: null,
+      });
+
+      await expect(
+        service.anexarTermo(
+          'al1',
+          { originalname: 'termo.pdf', filename: 'abc.pdf', mimetype: 'application/pdf' } as any,
+          { id: 'outro', role: 'USER' },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prismaMock.alocacaoEquipamento.update).not.toHaveBeenCalled();
     });
 
     it('remover o termo desfaz o assinado', async () => {

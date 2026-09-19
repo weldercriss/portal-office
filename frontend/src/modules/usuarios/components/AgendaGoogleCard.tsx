@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CalendarDays, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { Card } from '../../../components/ui/Card';
 import { StatusToggle } from '../../../components/ui/StatusToggle';
 import {
   definirPreferenciaAgendaGoogle,
@@ -70,7 +69,7 @@ export function AgendaGoogleCard() {
   const conectando = conexao.isPending || conexao.isSuccess;
 
   return (
-    <Card elevated className="p-6">
+    <div className="mt-6 border-t border-[var(--color-border)] pt-6">
       <h2 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
         <CalendarDays aria-hidden="true" className="h-4 w-4" />
         Agenda Google
@@ -143,6 +142,6 @@ export function AgendaGoogleCard() {
           Não foi possível salvar a alteração. Tente novamente.
         </p>
       )}
-    </Card>
+    </div>
   );
 }

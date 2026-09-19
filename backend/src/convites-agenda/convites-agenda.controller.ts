@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -74,5 +74,12 @@ export class ConvitesAgendaController {
   @Post(':id/sincronizar-respostas')
   sincronizarRespostas(@Param('id') id: string) {
     return this.service.sincronizarRespostas(id);
+  }
+
+  /** Exclusão definitiva — MASTER only, mais forte que o cancelamento (ADMIN, já exigido pela classe). */
+  @Delete(':id')
+  @Roles('MASTER')
+  remover(@Param('id') id: string) {
+    return this.service.remover(id);
   }
 }
