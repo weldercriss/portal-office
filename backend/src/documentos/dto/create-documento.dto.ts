@@ -1,22 +1,18 @@
-import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
-
-export enum TipoDocumentoColaboradorDto {
-  CONTRATO = 'CONTRATO',
-  COMPROVANTE = 'COMPROVANTE',
-  POLITICA = 'POLITICA',
-  HOLERITE = 'HOLERITE',
-  ASSINADO = 'ASSINADO',
-  OUTRO = 'OUTRO',
-}
+import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 export class CreateDocumentoDto {
   @IsString()
   nome!: string;
 
-  @IsEnum(TipoDocumentoColaboradorDto)
-  tipo!: TipoDocumentoColaboradorDto;
+  @IsString()
+  categoriaId!: string;
 
   @IsOptional()
   @IsDateString()
   validade?: string;
+
+  /** Mês/ano de competência (ex.: contracheque) — dia é ignorado, sempre gravado como dia 1. */
+  @IsOptional()
+  @IsDateString()
+  competencia?: string;
 }

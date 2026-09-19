@@ -3,10 +3,12 @@ import type {
   ChecklistItem,
   CreateDependenteInput,
   CreateHistoricoInput,
+  DadosSensiveis,
   Dependente,
   DocumentoColaborador,
   HistoricoProfissional,
-  TipoDocumentoColaborador,
+  TipoChecklist,
+  UpdateDadosSensiveisInput,
 } from '../types/colaborador-rh.types';
 
 // Dependentes
@@ -24,14 +26,18 @@ export const createHistorico = (userId: string, input: CreateHistoricoInput) =>
 export const deleteHistorico = (userId: string, id: string) =>
   httpClient<{ success: boolean }>(`/colaboradores/${userId}/historico/${id}`, { method: 'DELETE' });
 
-// Checklist de admissão
-export const getChecklist = (userId: string) => httpClient<ChecklistItem[]>(`/colaboradores/${userId}/checklist`);
-export const gerarChecklistPadrao = (userId: string) =>
-  httpClient<{ count: number }>(`/colaboradores/${userId}/checklist/padrao`, { method: 'POST' });
-export const createChecklistItem = (userId: string, titulo: string) =>
-  httpClient<ChecklistItem>(`/colaboradores/${userId}/checklist`, { method: 'POST', body: { titulo } });
-export const updateChecklistItem = (userId: string, id: string, status: 'PENDENTE' | 'CONCLUIDO') =>
-  httpClient<ChecklistItem>(`/colaboradores/${userId}/checklist/${id}`, { method: 'PATCH', body: { status } });
+// Checklist (admissão/desligamento)
+export const getChecklist = (userId: string, tipo: TipoChecklist) =>
+  httpClient<ChecklistItem[]>(`/colaboradores/${userId}/checklist?tipo=${tipo}`);
+export const gerarChecklistPadrao = (userId: string, tipo: TipoChecklist) =>
+  httpClient<{ count: number }>(`/colaboradores/${userId}/checklist/padrao`, { method: 'POST', body: { tipo } });
+export const createChecklistItem = (userId: string, input: { titulo: string; tipo: TipoChecklist; categoria?: string }) =>
+  httpClient<ChecklistItem>(`/colaboradores/${userId}/checklist`, { method: 'POST', body: input });
+export const updateChecklistItem = (
+  userId: string,
+  id: string,
+  input: { status?: 'PENDENTE' | 'CONCLUIDO'; observacaoInterna?: string },
+) => httpClient<ChecklistItem>(`/colaboradores/${userId}/checklist/${id}`, { method: 'PATCH', body: input });
 export const deleteChecklistItem = (userId: string, id: string) =>
   httpClient<{ success: boolean }>(`/colaboradores/${userId}/checklist/${id}`, { method: 'DELETE' });
 
@@ -40,12 +46,13 @@ export const getDocumentos = (userId: string) =>
   httpClient<DocumentoColaborador[]>(`/colaboradores/${userId}/documentos`);
 export const uploadDocumento = (
   userId: string,
-  input: { nome: string; tipo: TipoDocumentoColaborador; validade?: string; arquivo: File },
+  input: { nome: string; categoriaId: string; validade?: string; competencia?: string; arquivo: File },
 ) => {
   const formData = new FormData();
   formData.set('nome', input.nome);
-  formData.set('tipo', input.tipo);
+  formData.set('categoriaId', input.categoriaId);
   if (input.validade) formData.set('validade', input.validade);
+  if (input.competencia) formData.set('competencia', input.competencia);
   formData.set('arquivo', input.arquivo);
   return httpClient<DocumentoColaborador>(`/colaboradores/${userId}/documentos`, { method: 'POST', body: formData });
 };
@@ -53,4 +60,19 @@ export const deleteDocumento = (userId: string, id: string) =>
   httpClient<{ success: boolean }>(`/colaboradores/${userId}/documentos/${id}`, { method: 'DELETE' });
 export const baixarDocumento = (userId: string, id: string) =>
   httpClientBlob(`/colaboradores/${userId}/documentos/${id}/arquivo`);
+
+// Dados sensíveis (saúde e cultural)
+export const getDadosSensiveis = (userId: string) => httpClient<DadosSensiveis>(`/colaboradores/${userId}/dados-sensiveis`);
+export const updateDadosSensiveis = (userId: string, input: UpdateDadosSensiveisInput) =>
+  httpClient<DadosSensiveis>(`/colaboradores/${userId}/dados-sensiveis`, { method: 'PATCH', body: input });
+
+// Foto de perfil
+export const uploadAvatar = (userId: string, arquivo: File) => {
+  const formData = new FormData();
+  formData.set('arquivo', arquivo);
+  return httpClient<{ id: string; avatarUrl: string }>(`/colaboradores/${userId}/avatar`, {
+    method: 'POST',
+    body: formData,
+  });
+};
 

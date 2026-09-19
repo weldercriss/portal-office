@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Param,
   Post,
@@ -18,7 +17,6 @@ import { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { ehAdminOuSuperior } from '../auth/roles.util';
 import { createUploadMulterOptions } from '../common/upload.storage';
 import { CreateDocumentoDto } from './dto/create-documento.dto';
 import { DocumentosService } from './documentos.service';
@@ -28,13 +26,6 @@ interface UsuarioAutenticado {
   role: string;
 }
 
-function garantirAcesso(req: Request, userId: string) {
-  const usuario = req.user as UsuarioAutenticado;
-  if (!ehAdminOuSuperior(usuario.role) && usuario.id !== userId) {
-    throw new ForbiddenException('Você não tem acesso aos documentos deste colaborador');
-  }
-}
-
 @UseGuards(JwtAuthGuard)
 @Controller('colaboradores/:userId/documentos')
 export class DocumentosController {
@@ -42,8 +33,7 @@ export class DocumentosController {
 
   @Get()
   findAll(@Param('userId') userId: string, @Req() req: Request) {
-    garantirAcesso(req, userId);
-    return this.documentosService.findAll(userId);
+    return this.documentosService.findAll(userId, req.user as UsuarioAutenticado);
   }
 
   @Post()
@@ -73,5 +63,18 @@ export class DocumentosController {
     res.setHeader('Content-Type', arquivo.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(arquivo.nome)}"`);
     res.sendFile(arquivo.caminho);
+  }
+}
+
+/** Árvore da Central de Documentos: Departamento > Colaborador > Categoria > arquivo. */
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
+@Controller('documentos')
+export class DocumentosResumoController {
+  constructor(private readonly documentosService: DocumentosService) {}
+
+  @Get('resumo')
+  resumo() {
+    return this.documentosService.findResumo();
   }
 }

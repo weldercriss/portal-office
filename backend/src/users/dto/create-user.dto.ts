@@ -14,6 +14,7 @@ import {
 export enum UserRole {
   ADMIN = 'ADMIN',
   USER = 'USER',
+  GESTOR = 'GESTOR',
 }
 
 export enum StatusColaboradorDto {
@@ -89,6 +90,15 @@ export class CreateUserDto {
   @IsOptional()
   @IsEnum(StatusColaboradorDto)
   statusColaborador?: StatusColaboradorDto;
+
+  /** Só usado para desligamento retroativo — sem informar, a virada pra DESLIGADO grava a data atual. */
+  @IsOptional()
+  @IsDateString()
+  dataDesligamento?: string;
+
+  @IsOptional()
+  @IsString()
+  motivoDesligamento?: string;
 
   @IsOptional()
   @IsString()

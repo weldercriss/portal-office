@@ -14,29 +14,16 @@ export class DashboardService {
 
   async getResumoAdmin() {
     const colaboradores = await this.prisma.user.findMany({
-      where: { ativo: true },
+      where: { ativo: true, statusColaborador: { not: 'PENDENTE' } },
       select: {
         id: true,
         nome: true,
         dataNascimento: true,
         dataAdmissao: true,
-        group: { select: { id: true, nome: true } },
       },
     });
 
     const hoje = new Date();
-    const porDepartamentoMap = new Map<string, { departamentoId: string | null; departamento: string; total: number }>();
-    for (const colaborador of colaboradores) {
-      const chave = colaborador.group?.id ?? 'sem-departamento';
-      const atual = porDepartamentoMap.get(chave) ?? {
-        departamentoId: colaborador.group?.id ?? null,
-        departamento: colaborador.group?.nome ?? 'Sem departamento',
-        total: 0,
-      };
-      atual.total += 1;
-      porDepartamentoMap.set(chave, atual);
-    }
-
     const proximosAniversariantes = colaboradores
       .filter((c) => c.dataNascimento)
       .map((c) => ({
@@ -66,10 +53,40 @@ export class DashboardService {
 
     return {
       totalColaboradores: colaboradores.length,
-      porDepartamento: Array.from(porDepartamentoMap.values()).sort((a, b) => b.total - a.total),
       proximosAniversariantes,
       proximosAniversariosCasa,
       agendamentos,
+    };
+  }
+
+  /** Escopo do GESTOR: mesmos blocos do resumo admin, filtrados aos liderados diretos. */
+  async getResumoEquipe(gestorId: string) {
+    const liderados = await this.prisma.user.findMany({
+      where: { gestorId, ativo: true, statusColaborador: { not: 'PENDENTE' } },
+      select: { id: true, nome: true, dataNascimento: true },
+    });
+
+    const hoje = new Date();
+    const proximosAniversariantes = liderados
+      .filter((c) => c.dataNascimento)
+      .map((c) => ({
+        id: c.id,
+        nome: c.nome,
+        data: c.dataNascimento as Date,
+        dias: diasAteProximaOcorrencia(c.dataNascimento as Date, hoje),
+      }))
+      .filter((c) => c.dias <= JANELA_DIAS)
+      .sort((a, b) => a.dias - b.dias)
+      .slice(0, LIMITE_ITENS);
+
+    const checklistPendente = await this.prisma.checklistItem.count({
+      where: { status: 'PENDENTE', tipo: 'ADMISSAO', user: { gestorId } },
+    });
+
+    return {
+      totalLiderados: liderados.length,
+      proximosAniversariantes,
+      checklistPendente,
     };
   }
 

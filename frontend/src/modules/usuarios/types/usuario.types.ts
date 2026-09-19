@@ -16,9 +16,10 @@ export interface GestorResumo {
   nome: string;
 }
 
-export type StatusColaborador = 'ATIVO' | 'AFASTADO' | 'FERIAS' | 'DESLIGADO';
+export type StatusColaborador = 'PENDENTE' | 'ATIVO' | 'AFASTADO' | 'FERIAS' | 'DESLIGADO';
 
 export const STATUS_COLABORADOR: { value: StatusColaborador; label: string }[] = [
+  { value: 'PENDENTE', label: 'Pendente de autorização' },
   { value: 'ATIVO', label: 'Ativo' },
   { value: 'AFASTADO', label: 'Afastado' },
   { value: 'FERIAS', label: 'Férias' },
@@ -35,6 +36,7 @@ export interface Usuario {
   acessoPlataforma: boolean;
   criadoEm: string;
   googleLinkedAt: string | null;
+  avatarUrl: string | null;
   dataNascimento: string | null;
   dataAdmissao: string | null;
   telefone: string | null;
@@ -48,6 +50,8 @@ export interface Usuario {
   salario: string | null;
   beneficios: string | null;
   statusColaborador: StatusColaborador;
+  dataDesligamento: string | null;
+  motivoDesligamento: string | null;
   bancoNome: string | null;
   bancoAgencia: string | null;
   bancoConta: string | null;

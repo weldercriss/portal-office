@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { StatusColaborador } from '@prisma/client';
+import { StatusColaborador, TipoChecklist } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { OnboardingService } from '../onboarding/onboarding.service';
 import { AlocacoesService } from '../patrimonio/alocacoes.service';
 import { PermissoesService } from '../permissoes/permissoes.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,6 +40,8 @@ const SELECT_PUBLICO = {
   salario: true,
   beneficios: true,
   statusColaborador: true,
+  dataDesligamento: true,
+  motivoDesligamento: true,
   bancoNome: true,
   bancoAgencia: true,
   bancoConta: true,
@@ -54,6 +57,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly permissoesService: PermissoesService,
     private readonly alocacoesService: AlocacoesService,
+    private readonly onboardingService: OnboardingService,
   ) {}
 
   /** Master é administração de plataforma, não colaborador — some da lista para quem não é master. */
@@ -73,6 +77,15 @@ export class UsersService {
     }
     const rotinas = await this.permissoesService.resolveRotinas(id);
     return { ...user, rotinas };
+  }
+
+  /** Equipe do gestor autenticado: só liderados diretos (gestorId), sem dado financeiro. */
+  findMinhaEquipe(gestorId: string) {
+    return this.prisma.user.findMany({
+      where: { gestorId, ativo: true, statusColaborador: { not: 'PENDENTE' } },
+      select: { id: true, nome: true, email: true, cargo: true, avatarUrl: true, statusColaborador: true },
+      orderBy: { nome: 'asc' },
+    });
   }
 
   findMasters() {
@@ -163,7 +176,7 @@ export class UsersService {
       dto.statusColaborador === StatusColaborador.DESLIGADO &&
       user.statusColaborador !== StatusColaborador.DESLIGADO;
 
-    const { dataNascimento, dataAdmissao, senha, ...resto } = dto;
+    const { dataNascimento, dataAdmissao, dataDesligamento, senha, ...resto } = dto;
     const habilitandoAcesso = dto.acessoPlataforma === true && user.acessoPlataforma === false;
     if (senha && !habilitandoAcesso && dto.acessoPlataforma !== false) {
       throw new BadRequestException('A senha só pode ser definida aqui ao habilitar o acesso à plataforma.');
@@ -173,6 +186,15 @@ export class UsersService {
       ? ''
       : habilitandoAcesso ? await bcrypt.hash(senha ?? senhaGerada!, 10) : undefined;
 
+    // Sem data informada, a virada pra DESLIGADO grava a data atual; com data, permite desligamento retroativo.
+    const dataDesligamentoResolvida = acabouDeSerDesligado
+      ? dataDesligamento
+        ? new Date(dataDesligamento)
+        : new Date()
+      : dataDesligamento
+        ? new Date(dataDesligamento)
+        : undefined;
+
     const atualizado = await this.prisma.$transaction(async (tx) => {
       return tx.user.update({
         where: { id },
@@ -181,15 +203,17 @@ export class UsersService {
           senhaHash,
           dataNascimento: dataNascimento ? new Date(dataNascimento) : undefined,
           dataAdmissao: dataAdmissao ? new Date(dataAdmissao) : undefined,
+          dataDesligamento: dataDesligamentoResolvida,
         },
         select: SELECT_PUBLICO,
       });
     });
 
-    // Fora da transação de propósito: a devolução tem transação própria e não
-    // pode segurar a edição do cadastro se algo der errado nela.
+    // Fora da transação de propósito: devolução e checklist têm suas próprias
+    // escritas e não podem segurar a edição do cadastro se algo der errado nelas.
     if (acabouDeSerDesligado) {
       await this.alocacoesService.devolverTudoDoColaborador(id);
+      await this.onboardingService.gerarPadrao(id, TipoChecklist.DESLIGAMENTO);
     }
 
     return { ...atualizado, senhaGerada };

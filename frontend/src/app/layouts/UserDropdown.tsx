@@ -7,6 +7,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { FormActions, FormField } from '../../components/ui/Form';
 import { Input } from '../../components/ui/Input';
 import { changeMinhaSenha } from '../../modules/usuarios/api/usuarios.api';
+import { resolverAvatarUrl } from '../../lib/avatarUrl';
 import { useAuth } from '../../shared/auth/AuthContext';
 import type { NavItem } from './navigation';
 
@@ -92,7 +93,7 @@ export function UserDropdown({ navItems = [] }: { navItems?: NavItem[] }) {
       >
         {user?.avatarUrl ? (
           <img
-            src={user.avatarUrl}
+            src={resolverAvatarUrl(user.avatarUrl)!}
             alt=""
             referrerPolicy="no-referrer"
             className="h-8 w-8 rounded-full object-cover"

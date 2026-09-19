@@ -14,6 +14,8 @@ enum Role {
   ADMIN
   USER
   MASTER
+  /// Acesso de leitura a equipe (liderados diretos via User.gestorId) -- nao satisfaz @Roles('ADMIN').
+  GESTOR
 }
 
 enum AuthChallengeFinalidade {
@@ -91,11 +93,18 @@ enum StatusColaborador {
   AFASTADO
   FERIAS
   DESLIGADO
+  /// Pre-cadastro publico aguardando revisao/autorizacao do RH -- nao conta como headcount ativo.
+  PENDENTE
 }
 
 enum StatusChecklistItem {
   PENDENTE
   CONCLUIDO
+}
+
+enum TipoChecklist {
+  ADMISSAO
+  DESLIGAMENTO
 }
 
 enum EtapaCandidato {
@@ -104,15 +113,6 @@ enum EtapaCandidato {
   AVALIACAO
   APROVADO
   REPROVADO
-}
-
-enum TipoDocumentoColaborador {
-  CONTRATO
-  COMPROVANTE
-  POLITICA
-  HOLERITE
-  ASSINADO
-  OUTRO
 }
 
 enum StatusTreinamento {
@@ -172,6 +172,13 @@ enum LogAplicacaoResultado {
   ABORTADA
 }
 
+enum PesquisaTipo {
+  NPS
+  NR1
+  FEEDBACK_1_1
+  GERAL
+}
+
 model User {
   id                       String                      @id @default(uuid())
   nome                     String
@@ -186,6 +193,8 @@ model User {
   googleSub                String?                     @unique
   googleLinkedAt           DateTime?
   avatarUrl                String?
+  avatarCaminho            String?
+  avatarMimeType           String?
   agendaGoogleAtiva        Boolean                     @default(true)
   dataNascimento           DateTime?
   dataAdmissao             DateTime?
@@ -203,10 +212,16 @@ model User {
   salario                  Decimal?                    @db.Decimal(12, 2)
   beneficios               String?
   statusColaborador        StatusColaborador           @default(ATIVO)
+  dataDesligamento         DateTime?
+  motivoDesligamento       String?
   bancoNome                String?
   bancoAgencia             String?
   bancoConta               String?
   bancoTipoConta           String?
+  /// Dado sensivel (LGPD) -- nunca entra em SELECT_PUBLICO, so no endpoint dedicado self-or-admin.
+  tipoSanguineo            String?
+  alergias                 String?
+  condicoesSaude           String?
   plantoesAtendidos        Plantao[]                   @relation("PlantaoAtendente")
   plantoesCriados          Plantao[]                   @relation("PlantaoCriadoPor")
   plantoesSerieCriadas     PlantaoSerie[]              @relation("PlantaoSerieCriadoPor")
@@ -222,7 +237,7 @@ model User {
   overridesRotina          UserRotinaOverride[]
   dependentes              Dependente[]
   historicoProfissional    HistoricoProfissional[]
-  checklistAdmissao        ChecklistAdmissaoItem[]
+  checklist                ChecklistItem[]
   entrevistasConduzidas    Entrevista[]                @relation("EntrevistaEntrevistador")
   documentos               DocumentoColaborador[]      @relation("DocumentoColaborador")
   documentosCriados        DocumentoColaborador[]      @relation("DocumentoCriadoPor")
@@ -236,6 +251,8 @@ model User {
   convitesAgendaCriados    ConviteAgendaEvento[]       @relation("ConviteAgendaCriadoPor")
   convitesAgendaRecebidos  ConviteAgendaDestinatario[]
   logsAplicacao            LogAplicacao[]
+  pesquisasCriadas         Pesquisa[]
+  pesquisaConvites         PesquisaConvite[]
 }
 
 model Group {
@@ -371,6 +388,13 @@ model Notificacao {
   criadoEm DateTime @default(now())
 }
 
+/// Config singleton (id="global") -- fallback ao array padrao no codigo se a linha ainda nao existir.
+model ConfigAvisoAniversario {
+  id               String   @id @default("global")
+  diasAntecedencia Int[]    @default([15, 10, 5, 3, 1])
+  atualizadoEm     DateTime @updatedAt
+}
+
 model TelegramConfig {
   id       String  @id @default(uuid())
   botToken String
@@ -427,6 +451,8 @@ model TipoSolicitacao {
   permiteLinkPublico   Boolean       @default(false)
   /// Token opaco e fixo do link público do formulário (gerado uma vez, reaproveitado em toda resposta). Nulo enquanto permiteLinkPublico=false.
   tokenLinkPublico     String?       @unique
+  /// Formulário de pré-cadastro: a resposta cria um User (statusColaborador=PENDENTE). Exige permiteLinkPublico e dois campos com mapeamento NOME/EMAIL.
+  ehPreAdmissao        Boolean       @default(false)
   criadoEm             DateTime      @default(now())
   solicitacoes         Solicitacao[]
 }
@@ -483,21 +509,30 @@ model HistoricoProfissional {
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   cargo        String
+  /// So relevante quando externo=false -- livre, sem tabela de categoria.
   departamento String?
+  /// Preenchido so quando externo=true.
+  empresa      String?
+  externo      Boolean   @default(false)
   dataInicio   DateTime
   dataFim      DateTime?
   observacao   String?
   criadoEm     DateTime  @default(now())
 }
 
-model ChecklistAdmissaoItem {
-  id          String              @id @default(uuid())
-  userId      String
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  titulo      String
-  status      StatusChecklistItem @default(PENDENTE)
-  concluidoEm DateTime?
-  criadoEm    DateTime            @default(now())
+model ChecklistItem {
+  id     String        @id @default(uuid())
+  userId String
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tipo   TipoChecklist @default(ADMISSAO)
+  /// Agrupamento por etapa ("Documentação", "Exame Admissional"...) -- texto livre, sem catálogo.
+  categoria         String?
+  titulo            String
+  status            StatusChecklistItem @default(PENDENTE)
+  /// Nunca retornado pra quem não é ADMIN/MASTER (nem pro GESTOR da equipe).
+  observacaoInterna String?
+  concluidoEm       DateTime?
+  criadoEm          DateTime            @default(now())
 }
 
 model Vaga {
@@ -539,19 +574,30 @@ model Entrevista {
   criadoEm        DateTime  @default(now())
 }
 
+model CategoriaDocumento {
+  id         String                 @id @default(uuid())
+  nome       String                 @unique
+  ativo      Boolean                @default(true)
+  criadoEm   DateTime               @default(now())
+  documentos DocumentoColaborador[]
+}
+
 model DocumentoColaborador {
-  id              String                   @id @default(uuid())
+  id              String             @id @default(uuid())
   userId          String
-  user            User                     @relation("DocumentoColaborador", fields: [userId], references: [id], onDelete: Cascade)
-  tipo            TipoDocumentoColaborador
+  user            User               @relation("DocumentoColaborador", fields: [userId], references: [id], onDelete: Cascade)
+  categoriaId     String
+  categoria       CategoriaDocumento @relation(fields: [categoriaId], references: [id])
   nome            String
   arquivoNome     String
   arquivoCaminho  String
   arquivoMimeType String
   validade        DateTime?
+  /// Competência do documento (mês/ano, dia 1 em UTC) — usada pra agrupar o contracheque em "pastas" por mês.
+  competencia     DateTime?
   criadoPorId     String
-  criadoPor       User                     @relation("DocumentoCriadoPor", fields: [criadoPorId], references: [id])
-  criadoEm        DateTime                 @default(now())
+  criadoPor       User               @relation("DocumentoCriadoPor", fields: [criadoPorId], references: [id])
+  criadoEm        DateTime           @default(now())
 }
 
 model Treinamento {
@@ -976,4 +1022,53 @@ model LogAplicacaoControle {
   ciclo        Int      @default(1)
   quantidade   Int      @default(0)
   atualizadoEm DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Modulo de pesquisas anonimas (NPS/NR-1) e feedback 1:1. Pesquisa e
+// PesquisaResposta nao tem FK entre si de proposito -- so PesquisaConvite
+// registra quem foi convidado e se respondeu (nunca o conteudo), garantindo
+// que nenhuma query religue uma resposta a quem a enviou.
+// ---------------------------------------------------------------------------
+
+model Pesquisa {
+  id          String             @id @default(uuid())
+  titulo      String
+  descricao   String?
+  tipo        PesquisaTipo
+  ativa       Boolean            @default(true)
+  /// CampoFormulario[], mesmo formato de TipoSolicitacao.camposFormulario -- sem tipo ARQUIVO (sem upload nesta pesquisa).
+  campos      Json
+  criadoPorId String
+  criadoPor   User               @relation(fields: [criadoPorId], references: [id])
+  criadoEm    DateTime           @default(now())
+  convites    PesquisaConvite[]
+  respostas   PesquisaResposta[]
+}
+
+/// Quem foi convidado e se ja respondeu -- nunca o conteudo, pra preservar o anonimato.
+model PesquisaConvite {
+  id          String    @id @default(uuid())
+  pesquisaId  String
+  pesquisa    Pesquisa  @relation(fields: [pesquisaId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  convidadoEm DateTime  @default(now())
+  respondeuEm DateTime?
+
+  @@unique([pesquisaId, userId])
+  @@index([pesquisaId])
+  @@index([userId])
+}
+
+/// Conteudo da resposta -- de proposito sem userId e sem FK de volta a PesquisaConvite.
+model PesquisaResposta {
+  id         String   @id @default(uuid())
+  pesquisaId String
+  pesquisa   Pesquisa @relation(fields: [pesquisaId], references: [id], onDelete: Cascade)
+  /// { [campoId]: string | number }, mesmo formato de Solicitacao.respostasFormulario (sem ARQUIVO).
+  respostas  Json
+  criadoEm   DateTime @default(now())
+
+  @@index([pesquisaId])
 }

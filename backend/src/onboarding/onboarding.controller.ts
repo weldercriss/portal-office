@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { TipoChecklist } from '@prisma/client';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ehAdminOuSuperior } from '../auth/roles.util';
-import { CreateChecklistItemDto, UpdateChecklistItemDto } from './dto/checklist-item.dto';
+import { CreateChecklistItemDto, TipoChecklistDto, UpdateChecklistItemDto } from './dto/checklist-item.dto';
 import { OnboardingService } from './onboarding.service';
 
 interface UsuarioAutenticado {
@@ -12,7 +13,8 @@ interface UsuarioAutenticado {
   role: string;
 }
 
-function garantirAcesso(req: Request, userId: string) {
+/** Escrita continua self-or-admin — GESTOR não edita checklist da equipe, só lê (ver findAll). */
+function garantirAcessoEscrita(req: Request, userId: string) {
   const usuario = req.user as UsuarioAutenticado;
   if (!ehAdminOuSuperior(usuario.role) && usuario.id !== userId) {
     throw new ForbiddenException('Você não tem acesso ao checklist deste colaborador');
@@ -25,9 +27,8 @@ export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
 
   @Get()
-  findAll(@Param('userId') userId: string, @Req() req: Request) {
-    garantirAcesso(req, userId);
-    return this.onboardingService.findAll(userId);
+  findAll(@Param('userId') userId: string, @Req() req: Request, @Query('tipo') tipo?: TipoChecklistDto) {
+    return this.onboardingService.findAll(userId, req.user as UsuarioAutenticado, tipo as TipoChecklist | undefined);
   }
 
   @Post()
@@ -40,13 +41,17 @@ export class OnboardingController {
   @Post('padrao')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  gerarPadrao(@Param('userId') userId: string) {
-    return this.onboardingService.gerarPadrao(userId);
+  gerarPadrao(@Param('userId') userId: string, @Body('tipo') tipo?: TipoChecklistDto) {
+    return this.onboardingService.gerarPadrao(userId, tipo as TipoChecklist | undefined);
   }
 
   @Patch(':id')
   update(@Param('userId') userId: string, @Param('id') id: string, @Body() dto: UpdateChecklistItemDto, @Req() req: Request) {
-    garantirAcesso(req, userId);
+    garantirAcessoEscrita(req, userId);
+    const usuario = req.user as UsuarioAutenticado;
+    if (dto.observacaoInterna !== undefined && !ehAdminOuSuperior(usuario.role)) {
+      throw new ForbiddenException('Só administradores registram observação interna');
+    }
     return this.onboardingService.update(id, dto);
   }
 

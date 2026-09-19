@@ -6,7 +6,10 @@ import { AgendaGoogleModule } from './agenda-google/agenda-google.module';
 import { AgendamentoModule } from './agendamento/agendamento.module';
 import { AniversariosModule } from './aniversarios/aniversarios.module';
 import { AuthModule } from './auth/auth.module';
+import { AvatarModule } from './avatar/avatar.module';
+import { CategoriasDocumentoModule } from './categorias-documento/categorias-documento.module';
 import { ConvitesAgendaModule } from './convites-agenda/convites-agenda.module';
+import { DadosSensiveisModule } from './dados-sensiveis/dados-sensiveis.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DependentesModule } from './dependentes/dependentes.module';
 import { DocumentosModule } from './documentos/documentos.module';
@@ -20,6 +23,7 @@ import { PermissoesModule } from './permissoes/permissoes.module';
 import { PlantoesModule } from './plantoes/plantoes.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RecrutamentoModule } from './recrutamento/recrutamento.module';
+import { RelatoriosModule } from './relatorios/relatorios.module';
 import { SolicitacoesModule } from './solicitacoes/solicitacoes.module';
 import { SubAreasModule } from './subareas/subareas.module';
 import { TelegramModule } from './telegram/telegram.module';
@@ -56,9 +60,13 @@ import { UsersModule } from './users/users.module';
     LogsAplicacaoModule,
     OnboardingModule,
     DocumentosModule,
+    CategoriasDocumentoModule,
+    DadosSensiveisModule,
+    AvatarModule,
     TreinamentosModule,
     RecrutamentoModule,
     ConvitesAgendaModule,
+    RelatoriosModule,
   ],
   controllers: [AppController],
 })

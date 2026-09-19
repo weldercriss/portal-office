@@ -18,6 +18,8 @@ export interface HistoricoProfissional {
   userId: string;
   cargo: string;
   departamento: string | null;
+  empresa: string | null;
+  externo: boolean;
   dataInicio: string;
   dataFim: string | null;
   observacao: string | null;
@@ -27,40 +29,52 @@ export interface HistoricoProfissional {
 export interface CreateHistoricoInput {
   cargo: string;
   departamento?: string;
+  empresa?: string;
+  externo?: boolean;
   dataInicio: string;
   dataFim?: string;
   observacao?: string;
 }
 
+export interface DadosSensiveis {
+  tipoSanguineo: string | null;
+  alergias: string | null;
+  condicoesSaude: string | null;
+}
+
+export type UpdateDadosSensiveisInput = Partial<DadosSensiveis>;
+
 export type StatusChecklistItem = 'PENDENTE' | 'CONCLUIDO';
+export type TipoChecklist = 'ADMISSAO' | 'DESLIGAMENTO';
 
 export interface ChecklistItem {
   id: string;
   userId: string;
+  tipo: TipoChecklist;
+  categoria: string | null;
   titulo: string;
   status: StatusChecklistItem;
+  /** Nunca vem preenchido pra quem não é ADMIN/MASTER. */
+  observacaoInterna?: string | null;
   concluidoEm: string | null;
   criadoEm: string;
 }
 
-export type TipoDocumentoColaborador = 'CONTRATO' | 'COMPROVANTE' | 'POLITICA' | 'HOLERITE' | 'ASSINADO' | 'OUTRO';
-
-export const TIPOS_DOCUMENTO: { value: TipoDocumentoColaborador; label: string }[] = [
-  { value: 'CONTRATO', label: 'Contrato' },
-  { value: 'COMPROVANTE', label: 'Comprovante' },
-  { value: 'POLITICA', label: 'Política interna' },
-  { value: 'HOLERITE', label: 'Holerite' },
-  { value: 'ASSINADO', label: 'Documento assinado' },
-  { value: 'OUTRO', label: 'Outro' },
-];
+export interface CategoriaDocumentoResumo {
+  id: string;
+  nome: string;
+}
 
 export interface DocumentoColaborador {
   id: string;
   userId: string;
-  tipo: TipoDocumentoColaborador;
+  categoriaId: string;
+  categoria: CategoriaDocumentoResumo;
   nome: string;
   arquivoNome: string;
   validade: string | null;
+  /** Mês/ano de competência (ex.: contracheque) — null para documentos sem competência. */
+  competencia: string | null;
   criadoPorId: string;
   criadoEm: string;
 }

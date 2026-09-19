@@ -7,6 +7,7 @@ describe('DashboardService', () => {
   const prismaMock = {
     user: { findMany: jest.fn() },
     reserva: { count: jest.fn(), findMany: jest.fn() },
+    checklistItem: { count: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -22,29 +23,23 @@ describe('DashboardService', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it('aggregates total colaboradores and totals by department', async () => {
+  it('aggregates total colaboradores', async () => {
     prismaMock.user.findMany.mockResolvedValue([
-      { id: '1', nome: 'Ana', dataNascimento: null, dataAdmissao: null, group: { id: 'g1', nome: 'CS' } },
-      { id: '2', nome: 'Bia', dataNascimento: null, dataAdmissao: null, group: { id: 'g1', nome: 'CS' } },
-      { id: '3', nome: 'Caio', dataNascimento: null, dataAdmissao: null, group: null },
+      { id: '1', nome: 'Ana', dataNascimento: null, dataAdmissao: null },
+      { id: '2', nome: 'Bia', dataNascimento: null, dataAdmissao: null },
+      { id: '3', nome: 'Caio', dataNascimento: null, dataAdmissao: null },
     ]);
 
     const resumo = await service.getResumoAdmin();
 
     expect(resumo.totalColaboradores).toBe(3);
-    expect(resumo.porDepartamento).toEqual(
-      expect.arrayContaining([
-        { departamentoId: 'g1', departamento: 'CS', total: 2 },
-        { departamentoId: null, departamento: 'Sem departamento', total: 1 },
-      ]),
-    );
   });
 
   it('lists upcoming birthdays within the window, sorted by closest first', async () => {
     prismaMock.user.findMany.mockResolvedValue([
-      { id: '1', nome: 'Ana', dataNascimento: new Date('1995-09-10T00:00:00Z'), dataAdmissao: null, group: null },
-      { id: '2', nome: 'Bia', dataNascimento: new Date('1995-09-05T00:00:00Z'), dataAdmissao: null, group: null },
-      { id: '3', nome: 'Caio', dataNascimento: new Date('1995-12-25T00:00:00Z'), dataAdmissao: null, group: null },
+      { id: '1', nome: 'Ana', dataNascimento: new Date('1995-09-10T00:00:00Z'), dataAdmissao: null },
+      { id: '2', nome: 'Bia', dataNascimento: new Date('1995-09-05T00:00:00Z'), dataAdmissao: null },
+      { id: '3', nome: 'Caio', dataNascimento: new Date('1995-12-25T00:00:00Z'), dataAdmissao: null },
     ]);
 
     const resumo = await service.getResumoAdmin();
@@ -54,7 +49,7 @@ describe('DashboardService', () => {
 
   it('lists upcoming work anniversaries with the completed years count', async () => {
     prismaMock.user.findMany.mockResolvedValue([
-      { id: '1', nome: 'Ana', dataNascimento: null, dataAdmissao: new Date('2021-09-05T00:00:00Z'), group: null },
+      { id: '1', nome: 'Ana', dataNascimento: null, dataAdmissao: new Date('2021-09-05T00:00:00Z') },
     ]);
 
     const resumo = await service.getResumoAdmin();
@@ -92,5 +87,26 @@ describe('DashboardService', () => {
         }),
       }),
     );
+  });
+
+  describe('getResumoEquipe', () => {
+    it('escopa aniversariantes e total de liderados a gestorId', async () => {
+      prismaMock.user.findMany.mockResolvedValue([
+        { id: '1', nome: 'Ana', dataNascimento: new Date('1995-09-05T00:00:00Z') },
+      ]);
+      prismaMock.checklistItem.count.mockResolvedValue(2);
+
+      const resumo = await service.getResumoEquipe('gestor1');
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { gestorId: 'gestor1', ativo: true, statusColaborador: { not: 'PENDENTE' } } }),
+      );
+      expect(prismaMock.checklistItem.count).toHaveBeenCalledWith({
+        where: { status: 'PENDENTE', tipo: 'ADMISSAO', user: { gestorId: 'gestor1' } },
+      });
+      expect(resumo.totalLiderados).toBe(1);
+      expect(resumo.checklistPendente).toBe(2);
+      expect(resumo.proximosAniversariantes.map((c) => c.nome)).toEqual(['Ana']);
+    });
   });
 });

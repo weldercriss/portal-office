@@ -3,8 +3,10 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { diasAteProximaOcorrencia } from '../common/datas.util';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateConfigAvisoAniversarioDto } from './dto/config-aviso-aniversario.dto';
 
-const DIAS_ALVO = [5, 3, 2, 1];
+const CONFIG_ID = 'global';
+const DIAS_ALVO_PADRAO = [15, 10, 5, 3, 1];
 
 @Injectable()
 export class AniversariosService {
@@ -15,25 +17,50 @@ export class AniversariosService {
     private readonly notificacoesService: NotificacoesService,
   ) {}
 
+  async getConfig() {
+    const config = await this.prisma.configAvisoAniversario.findUnique({ where: { id: CONFIG_ID } });
+    return { diasAntecedencia: config?.diasAntecedencia ?? DIAS_ALVO_PADRAO };
+  }
+
+  async updateConfig(dto: UpdateConfigAvisoAniversarioDto) {
+    const config = await this.prisma.configAvisoAniversario.upsert({
+      where: { id: CONFIG_ID },
+      create: { id: CONFIG_ID, diasAntecedencia: dto.diasAntecedencia },
+      update: { diasAntecedencia: dto.diasAntecedencia },
+    });
+    return { diasAntecedencia: config.diasAntecedencia };
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   async verificarAniversariosProximos() {
     const hoje = new Date();
-    const destinatarios = await this.prisma.user.findMany({
+    const { diasAntecedencia } = await this.getConfig();
+
+    const destinatariosRH = await this.prisma.user.findMany({
       where: { ativo: true, recebeAvisosRH: true },
       select: { id: true },
     });
-    if (destinatarios.length === 0) return;
+    const idsRH = destinatariosRH.map((d) => d.id);
 
     const colaboradores = await this.prisma.user.findMany({
-      where: { ativo: true, OR: [{ dataNascimento: { not: null } }, { dataAdmissao: { not: null } }] },
-      select: { id: true, nome: true, dataNascimento: true, dataAdmissao: true },
+      where: {
+        ativo: true,
+        statusColaborador: { not: 'PENDENTE' },
+        OR: [{ dataNascimento: { not: null } }, { dataAdmissao: { not: null } }],
+      },
+      select: { id: true, nome: true, dataNascimento: true, dataAdmissao: true, gestorId: true },
     });
 
     for (const colaborador of colaboradores) {
+      // União do RH configurado + gestor direto (se houver), sem duplicar nem avisar o próprio aniversariante.
+      const destinatarios = new Set(idsRH);
+      if (colaborador.gestorId) destinatarios.add(colaborador.gestorId);
+      destinatarios.delete(colaborador.id);
+
       if (colaborador.dataNascimento) {
         const dias = diasAteProximaOcorrencia(colaborador.dataNascimento, hoje);
-        if (DIAS_ALVO.includes(dias)) {
-          await this.notificarDestinatarios(destinatarios, colaborador.id, {
+        if (diasAntecedencia.includes(dias)) {
+          await this.notificarDestinatarios(destinatarios, {
             tipo: 'ANIVERSARIO_PROXIMO',
             titulo: 'Aniversário próximo',
             mensagem: this.mensagem(colaborador.nome, dias, 'faz aniversário'),
@@ -42,8 +69,8 @@ export class AniversariosService {
       }
       if (colaborador.dataAdmissao) {
         const dias = diasAteProximaOcorrencia(colaborador.dataAdmissao, hoje);
-        if (DIAS_ALVO.includes(dias)) {
-          await this.notificarDestinatarios(destinatarios, colaborador.id, {
+        if (diasAntecedencia.includes(dias)) {
+          await this.notificarDestinatarios(destinatarios, {
             tipo: 'ANIVERSARIO_ADMISSAO_PROXIMO',
             titulo: 'Aniversário de tempo de casa próximo',
             mensagem: this.mensagem(colaborador.nome, dias, 'completa tempo de casa'),
@@ -60,23 +87,20 @@ export class AniversariosService {
   }
 
   private async notificarDestinatarios(
-    destinatarios: { id: string }[],
-    colaboradorId: string,
+    destinatarios: Set<string>,
     dados: { tipo: string; titulo: string; mensagem: string },
   ) {
     await Promise.all(
-      destinatarios
-        .filter((d) => d.id !== colaboradorId)
-        .map((d) =>
-          this.notificacoesService.criar({
-            userId: d.id,
-            tipo: dados.tipo,
-            titulo: dados.titulo,
-            mensagem: dados.mensagem,
-            telegramTexto: `🎉 ${dados.titulo}\n\n${dados.mensagem}`,
-            link: '/',
-          }),
-        ),
+      Array.from(destinatarios).map((userId) =>
+        this.notificacoesService.criar({
+          userId,
+          tipo: dados.tipo,
+          titulo: dados.titulo,
+          mensagem: dados.mensagem,
+          telegramTexto: `🎉 ${dados.titulo}\n\n${dados.mensagem}`,
+          link: '/',
+        }),
+      ),
     );
   }
 }

@@ -33,8 +33,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const isAdmin = satisfazRole(user?.role, 'ADMIN');
   const isMaster = user?.role === 'MASTER';
+  const isGestor = user?.role === 'GESTOR';
   const navItems = NAV_ITEMS.filter((item) => {
     if (item.masterOnly) return isMaster;
+    if (item.gestorOnly) return isGestor;
     if (item.adminOnly) return isAdmin;
     if (item.rotina) return isAdmin || Boolean(user?.rotinas.includes(item.rotina));
     return true;

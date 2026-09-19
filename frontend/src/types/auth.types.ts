@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'USER' | 'MASTER';
+export type UserRole = 'ADMIN' | 'USER' | 'MASTER' | 'GESTOR';
 
 export interface AuthUser {
   id: string;
@@ -12,11 +12,12 @@ export interface AuthUser {
   avatarUrl?: string | null;
 }
 
-const NIVEL_ROLE: Record<UserRole, number> = { USER: 0, ADMIN: 1, MASTER: 2 };
+const NIVEL_ROLE: Record<UserRole, number> = { USER: 0, GESTOR: 1, ADMIN: 2, MASTER: 3 };
 
 /**
- * Hierarquia de papéis: MASTER satisfaz qualquer checagem de ADMIN, e ADMIN a
- * de USER — nunca o contrário. Espelha `backend/src/auth/roles.util.ts`.
+ * Hierarquia de papéis: MASTER satisfaz qualquer checagem de ADMIN, ADMIN a
+ * de GESTOR, e GESTOR a de USER — nunca o contrário. Espelha
+ * `backend/src/auth/roles.util.ts`.
  */
 export function satisfazRole(role: UserRole | undefined | null, minimo: UserRole): boolean {
   if (!role) return false;

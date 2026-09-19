@@ -1,12 +1,24 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { garantirAcessoColaborador } from '../common/acesso-colaborador.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateHistoricoDto, UpdateHistoricoDto } from './dto/historico.dto';
+
+interface UsuarioAutenticado {
+  id: string;
+  role: string;
+}
 
 @Injectable()
 export class HistoricoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(userId: string) {
+  async findAll(userId: string, chamador: UsuarioAutenticado) {
+    let gestorIdDoAlvo: string | null = null;
+    if (chamador.role === 'GESTOR' && chamador.id !== userId) {
+      const alvo = await this.prisma.user.findUnique({ where: { id: userId }, select: { gestorId: true } });
+      gestorIdDoAlvo = alvo?.gestorId ?? null;
+    }
+    garantirAcessoColaborador(chamador, userId, gestorIdDoAlvo);
     return this.prisma.historicoProfissional.findMany({ where: { userId }, orderBy: { dataInicio: 'desc' } });
   }
 
@@ -15,7 +27,9 @@ export class HistoricoService {
       data: {
         userId,
         cargo: dto.cargo,
-        departamento: dto.departamento,
+        departamento: dto.externo ? undefined : dto.departamento,
+        empresa: dto.externo ? dto.empresa : undefined,
+        externo: dto.externo ?? false,
         dataInicio: new Date(dto.dataInicio),
         dataFim: dto.dataFim ? new Date(dto.dataFim) : undefined,
         observacao: dto.observacao,
@@ -31,6 +45,8 @@ export class HistoricoService {
       data: {
         cargo: dto.cargo,
         departamento: dto.departamento,
+        empresa: dto.empresa,
+        externo: dto.externo,
         dataInicio: dto.dataInicio ? new Date(dto.dataInicio) : undefined,
         dataFim: dto.dataFim ? new Date(dto.dataFim) : undefined,
         observacao: dto.observacao,

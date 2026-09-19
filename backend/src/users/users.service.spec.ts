@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
+import { OnboardingService } from '../onboarding/onboarding.service';
 import { AlocacoesService } from '../patrimonio/alocacoes.service';
 import { PermissoesService } from '../permissoes/permissoes.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,6 +19,7 @@ describe('UsersService', () => {
   };
   const permissoesMock = { resolveRotinas: jest.fn().mockResolvedValue([]) };
   const alocacoesMock = { devolverTudoDoColaborador: jest.fn().mockResolvedValue({ devolvidas: 0 }) };
+  const onboardingMock = { gerarPadrao: jest.fn().mockResolvedValue({ count: 5 }) };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -27,6 +29,7 @@ describe('UsersService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: PermissoesService, useValue: permissoesMock },
         { provide: AlocacoesService, useValue: alocacoesMock },
+        { provide: OnboardingService, useValue: onboardingMock },
       ],
     }).compile();
     service = moduleRef.get(UsersService);
@@ -132,6 +135,28 @@ describe('UsersService', () => {
     await service.update('4b', { dataAdmissao: '2022-03-01' }, ADMIN_CHAMADOR);
     const dataArg = tx.user.update.mock.calls[0][0].data;
     expect(dataArg.dataAdmissao).toBeInstanceOf(Date);
+  });
+
+  it('devolve equipamentos e gera o checklist de desligamento só na virada pra DESLIGADO', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ id: '6', statusColaborador: 'ATIVO' });
+    const tx = { user: { update: jest.fn().mockResolvedValue({ id: '6' }) } };
+    prismaMock.$transaction.mockImplementation((cb: any) => cb(tx));
+
+    await service.update('6', { statusColaborador: 'DESLIGADO' as any }, ADMIN_CHAMADOR);
+
+    expect(alocacoesMock.devolverTudoDoColaborador).toHaveBeenCalledWith('6');
+    expect(onboardingMock.gerarPadrao).toHaveBeenCalledWith('6', 'DESLIGAMENTO');
+  });
+
+  it('não repete devolução nem checklist ao salvar de novo quem já estava desligado', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ id: '7', statusColaborador: 'DESLIGADO' });
+    const tx = { user: { update: jest.fn().mockResolvedValue({ id: '7' }) } };
+    prismaMock.$transaction.mockImplementation((cb: any) => cb(tx));
+
+    await service.update('7', { statusColaborador: 'DESLIGADO' as any }, ADMIN_CHAMADOR);
+
+    expect(alocacoesMock.devolverTudoDoColaborador).not.toHaveBeenCalled();
+    expect(onboardingMock.gerarPadrao).not.toHaveBeenCalled();
   });
 
   it('soft-deletes on remove (ativo=false)', async () => {

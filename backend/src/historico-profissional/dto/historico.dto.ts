@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsDateString, IsOptional, IsString } from 'class-validator';
 
 export class CreateHistoricoDto {
   @IsString()
@@ -7,6 +7,15 @@ export class CreateHistoricoDto {
   @IsOptional()
   @IsString()
   departamento?: string;
+
+  /** Preenchido só quando externo=true. */
+  @IsOptional()
+  @IsString()
+  empresa?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  externo?: boolean;
 
   @IsDateString()
   dataInicio!: string;
@@ -28,6 +37,14 @@ export class UpdateHistoricoDto {
   @IsOptional()
   @IsString()
   departamento?: string;
+
+  @IsOptional()
+  @IsString()
+  empresa?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  externo?: boolean;
 
   @IsOptional()
   @IsDateString()

@@ -41,6 +41,15 @@ export class UsersController {
     return this.usersService.changePassword(usuario.id, dto);
   }
 
+  /** Escopo do GESTOR: só os próprios liderados diretos. Precisa vir antes de `:id`. */
+  @Get('minha-equipe')
+  @UseGuards(RolesGuard)
+  @Roles('GESTOR')
+  findMinhaEquipe(@Req() req: Request) {
+    const usuario = req.user as UsuarioAutenticado;
+    return this.usersService.findMinhaEquipe(usuario.id);
+  }
+
   /**
    * Usuários master: administração da própria plataforma, não colaboradores.
    * Só um master consulta/cria outro master — precisa vir antes de `:id` para

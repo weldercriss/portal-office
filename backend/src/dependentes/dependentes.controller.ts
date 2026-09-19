@@ -10,9 +10,17 @@ interface UsuarioAutenticado {
   role: string;
 }
 
-function garantirAcesso(req: Request, userId: string) {
+function garantirAcessoLeitura(req: Request, userId: string) {
   const usuario = req.user as UsuarioAutenticado;
   if (!ehAdminOuSuperior(usuario.role) && usuario.id !== userId) {
+    throw new ForbiddenException('Você não tem acesso aos dados deste colaborador');
+  }
+}
+
+/** O próprio colaborador só lê — cadastro/edição de dependentes é sempre feito pelo RH (admin). */
+function garantirAcessoEscrita(req: Request) {
+  const usuario = req.user as UsuarioAutenticado;
+  if (!ehAdminOuSuperior(usuario.role)) {
     throw new ForbiddenException('Você não tem acesso aos dados deste colaborador');
   }
 }
@@ -24,13 +32,13 @@ export class DependentesController {
 
   @Get()
   findAll(@Param('userId') userId: string, @Req() req: Request) {
-    garantirAcesso(req, userId);
+    garantirAcessoLeitura(req, userId);
     return this.dependentesService.findAll(userId);
   }
 
   @Post()
   create(@Param('userId') userId: string, @Body() dto: CreateDependenteDto, @Req() req: Request) {
-    garantirAcesso(req, userId);
+    garantirAcessoEscrita(req);
     return this.dependentesService.create(userId, dto);
   }
 
@@ -41,13 +49,13 @@ export class DependentesController {
     @Body() dto: UpdateDependenteDto,
     @Req() req: Request,
   ) {
-    garantirAcesso(req, userId);
+    garantirAcessoEscrita(req);
     return this.dependentesService.update(id, dto);
   }
 
   @Delete(':id')
   remove(@Param('userId') userId: string, @Param('id') id: string, @Req() req: Request) {
-    garantirAcesso(req, userId);
+    garantirAcessoEscrita(req);
     return this.dependentesService.remove(id);
   }
 }

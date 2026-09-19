@@ -1,9 +1,3 @@
-export interface DashboardDepartamentoTotal {
-  departamentoId: string | null;
-  departamento: string;
-  total: number;
-}
-
 export interface DashboardAniversariante {
   id: string;
   nome: string;
@@ -34,7 +28,6 @@ export interface DashboardAgendamentos {
 
 export interface DashboardResumoAdmin {
   totalColaboradores: number;
-  porDepartamento: DashboardDepartamentoTotal[];
   proximosAniversariantes: DashboardAniversariante[];
   proximosAniversariosCasa: DashboardAniversarioCasa[];
   agendamentos: DashboardAgendamentos;

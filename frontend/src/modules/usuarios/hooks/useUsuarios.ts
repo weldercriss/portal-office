@@ -13,12 +13,12 @@ import type { CreateUsuarioInput, UpdateUsuarioInput } from '../types/usuario.ty
 const USUARIOS_KEY = ['usuarios'] as const;
 const MEU_PERFIL_KEY = ['usuarios', 'me'] as const;
 
-export function useUsuarios() {
-  return useQuery({ queryKey: USUARIOS_KEY, queryFn: getUsuarios });
+export function useUsuarios(options?: { enabled?: boolean }) {
+  return useQuery({ queryKey: USUARIOS_KEY, queryFn: getUsuarios, enabled: options?.enabled ?? true });
 }
 
-export function useMeuPerfil() {
-  return useQuery({ queryKey: MEU_PERFIL_KEY, queryFn: getMeuPerfil });
+export function useMeuPerfil(options?: { enabled?: boolean }) {
+  return useQuery({ queryKey: MEU_PERFIL_KEY, queryFn: getMeuPerfil, enabled: options?.enabled ?? true });
 }
 
 export function useCreateUsuario() {

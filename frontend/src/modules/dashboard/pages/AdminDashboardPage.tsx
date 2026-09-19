@@ -229,12 +229,19 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const { totalColaboradores, porDepartamento, proximosAniversariantes, proximosAniversariosCasa, agendamentos } =
-    resumoQuery.data;
+  const { totalColaboradores, proximosAniversariantes, proximosAniversariosCasa, agendamentos } = resumoQuery.data;
 
   return (
     <PageShell>
-      <PageHeader title="Dashboard" description="Visão geral do time e dos próximos eventos de RH." />
+      <PageHeader
+        title="Dashboard"
+        description="Visão geral do time e dos próximos eventos de RH."
+        actions={
+          <Link to="/relatorios/colaboradores" className="text-xs font-bold text-[var(--color-primary)] hover:underline">
+            Ver relatório completo
+          </Link>
+        }
+      />
 
       <div className="flex flex-col gap-4 sm:flex-row">
         <KpiTile label="Total de colaboradores" valor={String(totalColaboradores)} />
@@ -276,26 +283,7 @@ export default function AdminDashboardPage() {
 
       <FormulariosCard />
 
-      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <Card elevated className="p-6">
-          <CardTitle>Colaboradores por departamento</CardTitle>
-          {porDepartamento.length === 0 ? (
-            <p className="mt-4 text-sm text-[var(--color-text-secondary)]">Nenhum colaborador cadastrado ainda.</p>
-          ) : (
-            <ul className="mt-4 flex flex-col gap-3">
-              {porDepartamento.map((item) => (
-                <li
-                  key={item.departamentoId ?? 'sem-departamento'}
-                  className="flex items-center justify-between border-t border-[var(--color-border)] pt-3 first:border-0 first:pt-0"
-                >
-                  <span className="text-sm font-medium text-[var(--color-text-primary)]">{item.departamento}</span>
-                  <span className="text-sm font-bold text-[var(--color-text-primary)]">{item.total}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
         <Card className="p-6">
           <CardTitle>Próximos aniversários</CardTitle>
           <ListaResumo
