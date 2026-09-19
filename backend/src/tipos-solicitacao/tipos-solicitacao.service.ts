@@ -18,6 +18,7 @@ export class TiposSolicitacaoService {
 
   async create(dto: CreateTipoSolicitacaoDto) {
     this.validarLinkPublico(dto.permiteLinkPublico, dto.usaFormulario ?? false, dto.requerAprovacao ?? true);
+    this.validarPreAdmissao(dto.ehPreAdmissao, dto.permiteLinkPublico ?? false, dto.camposFormulario);
     return this.prisma.tipoSolicitacao.create({
       data: {
         ...dto,
@@ -34,6 +35,9 @@ export class TiposSolicitacaoService {
     const usaFormulario = dto.usaFormulario ?? tipo.usaFormulario;
     const requerAprovacao = dto.requerAprovacao ?? tipo.requerAprovacao;
     this.validarLinkPublico(permiteLinkPublico, usaFormulario, requerAprovacao);
+    const ehPreAdmissao = dto.ehPreAdmissao ?? tipo.ehPreAdmissao;
+    const camposFormulario = (dto.camposFormulario ?? (tipo.camposFormulario as CampoFormularioDto[] | null)) ?? undefined;
+    this.validarPreAdmissao(ehPreAdmissao, permiteLinkPublico, camposFormulario);
     return this.prisma.tipoSolicitacao.update({
       where: { id },
       data: {
@@ -50,6 +54,23 @@ export class TiposSolicitacaoService {
     if (!permiteLinkPublico) return;
     if (!usaFormulario) throw new BadRequestException('O link público exige que o tipo colete dados via formulário');
     if (!requerAprovacao) throw new BadRequestException('O link público exige que o tipo passe por aprovação');
+  }
+
+  /** Pré-cadastro exige o link público e exatamente um campo mapeado pra NOME e outro pra EMAIL. */
+  private validarPreAdmissao(
+    ehPreAdmissao: boolean | undefined,
+    permiteLinkPublico: boolean,
+    camposFormulario?: CampoFormularioDto[],
+  ) {
+    if (!ehPreAdmissao) return;
+    if (!permiteLinkPublico) throw new BadRequestException('Pré-cadastro exige que o link público esteja habilitado');
+    const campos = camposFormulario ?? [];
+    if (!campos.some((c) => c.mapeamento === 'NOME')) {
+      throw new BadRequestException('Pré-cadastro exige um campo mapeado como "Nome"');
+    }
+    if (!campos.some((c) => c.mapeamento === 'EMAIL')) {
+      throw new BadRequestException('Pré-cadastro exige um campo mapeado como "E-mail"');
+    }
   }
 
   /**

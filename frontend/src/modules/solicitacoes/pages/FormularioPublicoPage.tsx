@@ -6,7 +6,7 @@ import { Card } from '../../../components/ui/Card';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { FormActions } from '../../../components/ui/Form';
 import { LoadingState } from '../../../components/ui/LoadingState';
-import { CamposFormularioForm } from '../components/CamposFormularioForm';
+import { CamposFormularioForm } from '../../../components/system/CamposFormularioForm';
 import { anexarCampoFormularioPublico, criarSolicitacaoPublica, getFormularioPublico } from '../api/solicitacoes-publico.api';
 
 export default function FormularioPublicoPage() {

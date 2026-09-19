@@ -9,6 +9,8 @@ export interface CampoFormulario {
   opcoes?: string[];
   /** Mostra a resposta direto na listagem de solicitações, sem precisar abrir o drill-down. */
   exibirNaListagem?: boolean;
+  /** Só usado quando TipoSolicitacao.ehPreAdmissao=true: qual campo vira o nome/e-mail do colaborador criado. */
+  mapeamento?: 'NOME' | 'EMAIL';
 }
 
 export interface TemplateFormulario {
@@ -29,6 +31,7 @@ export interface TipoSolicitacao {
   camposFormulario: CampoFormulario[] | null;
   permiteLinkPublico: boolean;
   tokenLinkPublico: string | null;
+  ehPreAdmissao: boolean;
   criadoEm: string;
 }
 
@@ -40,6 +43,7 @@ export interface CreateTipoSolicitacaoInput {
   usaFormulario?: boolean;
   camposFormulario?: CampoFormulario[];
   permiteLinkPublico?: boolean;
+  ehPreAdmissao?: boolean;
 }
 
 export interface UpdateTipoSolicitacaoInput extends Partial<CreateTipoSolicitacaoInput> {

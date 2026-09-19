@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { Select } from '../../../components/ui/Select';
-import { useCreateTemplateFormulario, useTemplatesFormulario } from '../hooks/useTemplatesFormulario';
-import type { CampoFormulario, CampoFormularioTipo } from '../types/tipo-solicitacao.types';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { useCreateTemplateFormulario, useTemplatesFormulario } from '../../modules/tipos-solicitacao/hooks/useTemplatesFormulario';
+import type { CampoFormulario, CampoFormularioTipo } from '../../modules/tipos-solicitacao/types/tipo-solicitacao.types';
 
 const TIPO_LABEL: Record<CampoFormularioTipo, string> = {
   TEXTO: 'Texto',
@@ -18,12 +18,18 @@ function novoCampo(): CampoFormulario {
   return { id: crypto.randomUUID(), label: '', tipo: 'TEXTO', obrigatorio: false };
 }
 
+const TODOS_OS_TIPOS = Object.keys(TIPO_LABEL) as CampoFormularioTipo[];
+
 interface CamposFormularioEditorProps {
   value: CampoFormulario[];
   onChange: (campos: CampoFormulario[]) => void;
+  /** Mostra o seletor "Usar como" (Nome/E-mail), exigido pelo backend quando o tipo é pré-admissão. */
+  ehPreAdmissao?: boolean;
+  /** Restringe os tipos de campo oferecidos (ex.: pesquisas não aceitam ARQUIVO). Padrão: todos. */
+  tiposPermitidos?: CampoFormularioTipo[];
 }
 
-export function CamposFormularioEditor({ value, onChange }: CamposFormularioEditorProps) {
+export function CamposFormularioEditor({ value, onChange, ehPreAdmissao, tiposPermitidos }: CamposFormularioEditorProps) {
   const templatesQuery = useTemplatesFormulario();
   const criarTemplateMutation = useCreateTemplateFormulario();
   const [templateSelecionado, setTemplateSelecionado] = useState('');
@@ -107,7 +113,7 @@ export function CamposFormularioEditor({ value, onChange }: CamposFormularioEdit
               onChange={(e) => atualizarCampo(index, { tipo: e.target.value as CampoFormularioTipo })}
               className="max-w-[180px]"
             >
-              {(Object.keys(TIPO_LABEL) as CampoFormularioTipo[]).map((tipo) => (
+              {(tiposPermitidos ?? TODOS_OS_TIPOS).map((tipo) => (
                 <option key={tipo} value={tipo}>
                   {TIPO_LABEL[tipo]}
                 </option>
@@ -133,6 +139,20 @@ export function CamposFormularioEditor({ value, onChange }: CamposFormularioEdit
                 atualizarCampo(index, { opcoes: e.target.value.split(',').map((v) => v.trim()).filter(Boolean) })
               }
             />
+          )}
+          {ehPreAdmissao && (
+            <Select
+              aria-label={`Usar como (${campo.label || index + 1})`}
+              value={campo.mapeamento ?? ''}
+              onChange={(e) =>
+                atualizarCampo(index, { mapeamento: (e.target.value || undefined) as CampoFormulario['mapeamento'] })
+              }
+              className="max-w-[220px]"
+            >
+              <option value="">Usar como...</option>
+              <option value="NOME">Nome do colaborador</option>
+              <option value="EMAIL">E-mail do colaborador</option>
+            </Select>
           )}
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">

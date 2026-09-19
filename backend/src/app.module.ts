@@ -20,6 +20,7 @@ import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PatrimonioModule } from './patrimonio/patrimonio.module';
 import { PermissoesModule } from './permissoes/permissoes.module';
+import { PesquisasModule } from './pesquisas/pesquisas.module';
 import { PlantoesModule } from './plantoes/plantoes.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RecrutamentoModule } from './recrutamento/recrutamento.module';
@@ -67,6 +68,7 @@ import { UsersModule } from './users/users.module';
     RecrutamentoModule,
     ConvitesAgendaModule,
     RelatoriosModule,
+    PesquisasModule,
   ],
   controllers: [AppController],
 })

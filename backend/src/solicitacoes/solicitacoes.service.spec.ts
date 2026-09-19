@@ -3,9 +3,13 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { unlink } from 'fs/promises';
 import { SolicitacoesService } from './solicitacoes.service';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
+import { OnboardingService } from '../onboarding/onboarding.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-jest.mock('fs/promises', () => ({ unlink: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('fs/promises', () => ({
+  unlink: jest.fn().mockResolvedValue(undefined),
+  copyFile: jest.fn().mockResolvedValue(undefined),
+}));
 
 const TIPO_COM_APROVACAO = { id: 't1', nome: 'Férias', ativo: true, requerAprovacao: true, contaComoAfastamento: true };
 const TIPO_SEM_APROVACAO = { id: 't2', nome: 'Advertência', ativo: true, requerAprovacao: false, contaComoAfastamento: false };
@@ -25,9 +29,13 @@ describe('SolicitacoesService', () => {
   const prismaMock = {
     solicitacao: { findMany: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
     tipoSolicitacao: { findUnique: jest.fn() },
-    user: { findUnique: jest.fn() },
+    user: { findUnique: jest.fn(), create: jest.fn() },
+    categoriaDocumento: { upsert: jest.fn() },
+    documentoColaborador: { create: jest.fn() },
+    $transaction: jest.fn(),
   };
   const notificacoesMock = { criar: jest.fn(), criarParaAdmins: jest.fn() };
+  const onboardingMock = { gerarPadrao: jest.fn().mockResolvedValue({ count: 7 }) };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -36,6 +44,7 @@ describe('SolicitacoesService', () => {
         SolicitacoesService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: NotificacoesService, useValue: notificacoesMock },
+        { provide: OnboardingService, useValue: onboardingMock },
       ],
     }).compile();
     service = moduleRef.get(SolicitacoesService);
@@ -344,12 +353,108 @@ describe('SolicitacoesService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('rejects attaching a file to a solicitação already claimed by a colaborador', async () => {
+    it('rejects attaching a file to a solicitação já registrada por alguém autenticado', async () => {
       prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PUBLICO);
-      prismaMock.solicitacao.findUnique.mockResolvedValue({ id: 's1', tipoId: 't3', userId: 'u1', status: 'SOLICITADA' });
+      prismaMock.solicitacao.findUnique.mockResolvedValue({
+        id: 's1', tipoId: 't3', userId: null, registradoPorId: 'admin1', status: 'SOLICITADA',
+      });
       await expect(
         service.anexarCampoFormularioPublico('token-valido', 's1', 'c2', { path: 'x' } as any),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('formulário público de pré-admissão (ehPreAdmissao)', () => {
+    const TIPO_PRE_ADMISSAO = {
+      id: 't4',
+      nome: 'Pré-cadastro',
+      ativo: true,
+      permiteLinkPublico: true,
+      ehPreAdmissao: true,
+      camposFormulario: [
+        { id: 'nome', label: 'Nome', tipo: 'TEXTO', obrigatorio: true, mapeamento: 'NOME' },
+        { id: 'email', label: 'E-mail', tipo: 'TEXTO', obrigatorio: true, mapeamento: 'EMAIL' },
+        { id: 'doc', label: 'Documento', tipo: 'ARQUIVO' },
+      ],
+    };
+
+    beforeEach(() => {
+      prismaMock.$transaction.mockImplementation(async (cb: any) =>
+        cb({ user: prismaMock.user, solicitacao: prismaMock.solicitacao }),
+      );
+    });
+
+    it('cria o User em PENDENTE, a Solicitacao vinculada e o checklist de admissão', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PRE_ADMISSAO);
+      prismaMock.user.findUnique.mockResolvedValue(null);
+      prismaMock.user.create.mockResolvedValue({ id: 'novo-user' });
+      prismaMock.solicitacao.create.mockResolvedValue({ id: 's-pre' });
+
+      const resultado = await service.criarSolicitacaoPublica('token-pre', {
+        nome: 'Ana Nova',
+        email: 'Ana@Empresa.com',
+      });
+
+      expect(resultado).toEqual({ id: 's-pre' });
+      expect(prismaMock.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            nome: 'Ana Nova',
+            email: 'ana@empresa.com',
+            senhaHash: '',
+            acessoPlataforma: false,
+            statusColaborador: 'PENDENTE',
+            role: 'USER',
+          }),
+        }),
+      );
+      expect(prismaMock.solicitacao.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ userId: 'novo-user', tipoId: 't4' }) }),
+      );
+      expect(onboardingMock.gerarPadrao).toHaveBeenCalledWith('novo-user', 'ADMISSAO');
+      expect(notificacoesMock.criarParaAdmins).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'PRE_CADASTRO_CRIADO' }),
+      );
+    });
+
+    it('rejeita com mensagem genérica quando o e-mail já existe', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PRE_ADMISSAO);
+      prismaMock.user.findUnique.mockResolvedValue({ id: 'existente' });
+
+      await expect(
+        service.criarSolicitacaoPublica('token-pre', { nome: 'Ana', email: 'ana@empresa.com' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rejeita quando nome ou e-mail mapeados vêm vazios', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PRE_ADMISSAO);
+      await expect(
+        service.criarSolicitacaoPublica('token-pre', { nome: '', email: 'ana@empresa.com' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('permite anexar arquivo a uma solicitação de pré-admissão (já tem userId, mas não registradoPorId)', async () => {
+      prismaMock.tipoSolicitacao.findUnique.mockResolvedValue(TIPO_PRE_ADMISSAO);
+      prismaMock.solicitacao.findUnique.mockResolvedValue({
+        id: 's-pre', tipoId: 't4', userId: 'novo-user', registradoPorId: null, status: 'SOLICITADA', respostasFormulario: {},
+      });
+      prismaMock.categoriaDocumento.upsert.mockResolvedValue({ id: 'cat1', nome: 'Documentação de admissão' });
+
+      await service.anexarCampoFormularioPublico('token-pre', 's-pre', 'doc', {
+        originalname: 'rg.pdf',
+        filename: 'gerado.pdf',
+        mimetype: 'application/pdf',
+      } as any);
+
+      expect(prismaMock.categoriaDocumento.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { nome: 'Documentação de admissão' } }),
+      );
+      expect(prismaMock.documentoColaborador.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ userId: 'novo-user', categoriaId: 'cat1', criadoPorId: 'novo-user' }),
+        }),
+      );
     });
   });
 

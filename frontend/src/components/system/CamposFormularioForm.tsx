@@ -1,7 +1,7 @@
-import { FormField } from '../../../components/ui/Form';
-import { Input } from '../../../components/ui/Input';
-import { Select } from '../../../components/ui/Select';
-import type { CampoFormulario } from '../../tipos-solicitacao/types/tipo-solicitacao.types';
+import { FormField } from '../ui/Form';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import type { CampoFormulario } from '../../modules/tipos-solicitacao/types/tipo-solicitacao.types';
 
 interface CamposFormularioFormProps {
   campos: CampoFormulario[];

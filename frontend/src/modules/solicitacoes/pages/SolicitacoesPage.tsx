@@ -14,7 +14,7 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { Select } from '../../../components/ui/Select';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { useTiposSolicitacao } from '../../tipos-solicitacao/hooks/useTiposSolicitacao';
-import { CamposFormularioForm } from '../components/CamposFormularioForm';
+import { CamposFormularioForm } from '../../../components/system/CamposFormularioForm';
 import {
   useAnexarCampoFormulario,
   useAnexarSolicitacao,

@@ -17,8 +17,9 @@ import { Select } from '../../../components/ui/Select';
 import { StatusToggle } from '../../../components/ui/StatusToggle';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import type { UserRole } from '../../../types/auth.types';
-import { uploadDocumento } from '../../colaboradores-rh/api/colaborador-rh.api';
-import { TIPOS_DOCUMENTO, type TipoDocumentoColaborador } from '../../colaboradores-rh/types/colaborador-rh.types';
+import { resolverAvatarUrl } from '../../../lib/avatarUrl';
+import { uploadAvatar, uploadDocumento } from '../../colaboradores-rh/api/colaborador-rh.api';
+import { useCategoriasDocumento } from '../../categorias-documento/hooks/useCategoriasDocumento';
 import { useDepartamentos } from '../../departamentos/hooks/useDepartamentos';
 import { useSubAreas } from '../../subareas/hooks/useSubAreas';
 import {
@@ -107,7 +108,7 @@ function opcional(valor: string): string | undefined {
 interface DocumentoPendente {
   chave: string;
   arquivo: File;
-  tipo: TipoDocumentoColaborador;
+  categoriaId: string;
 }
 
 function chaveDoArquivo(arquivo: File): string {
@@ -117,6 +118,7 @@ function chaveDoArquivo(arquivo: File): string {
 export default function ColaboradoresAdminPage() {
   const usuariosQuery = useUsuarios();
   const departamentosQuery = useDepartamentos();
+  const categoriasQuery = useCategoriasDocumento();
   const createMutation = useCreateUsuario();
   const updateMutation = useUpdateUsuario();
   const deactivateMutation = useDeactivateUsuario();
@@ -125,7 +127,7 @@ export default function ColaboradoresAdminPage() {
 
   const [abaCadastro, setAbaCadastro] = useState<AbaCadastro>('geral');
   const [busca, setBusca] = useState('');
-  const [filtroStatus, setFiltroStatus] = useState<'ativos' | 'desativados' | 'todos'>('ativos');
+  const [filtroStatus, setFiltroStatus] = useState<'ativos' | 'desativados' | 'pendentes' | 'todos'>('ativos');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<Usuario | null>(null);
   const [emEdicao, setEmEdicao] = useState<Usuario | null>(null);
@@ -136,8 +138,10 @@ export default function ColaboradoresAdminPage() {
   const [senhaGerada, setSenhaGerada] = useState<{ nome: string; senha: string } | null>(null);
   const [documentosPendentes, setDocumentosPendentes] = useState<DocumentoPendente[]>([]);
   const [documentoEnviando, setDocumentoEnviando] = useState(false);
+  const [fotoPendente, setFotoPendente] = useState<File | null>(null);
 
   const departamentos = departamentosQuery.data ?? [];
+  const categorias = categoriasQuery.data ?? [];
   const subAreasQuery = useSubAreas({ groupId: form.groupId });
   const subAreas = subAreasQuery.data ?? [];
 
@@ -145,7 +149,14 @@ export default function ColaboradoresAdminPage() {
     const usuarios = usuariosQuery.data ?? [];
     const termo = busca.toLowerCase();
     return usuarios.filter((u) => {
-      const statusValido = filtroStatus === 'todos' || (filtroStatus === 'ativos' ? u.ativo : !u.ativo);
+      const statusValido =
+        filtroStatus === 'todos'
+          ? true
+          : filtroStatus === 'pendentes'
+            ? u.statusColaborador === 'PENDENTE'
+            : filtroStatus === 'ativos'
+              ? u.ativo && u.statusColaborador !== 'PENDENTE'
+              : !u.ativo;
       return statusValido && (u.nome.toLowerCase().includes(termo) || u.email.toLowerCase().includes(termo));
     });
   }, [usuariosQuery.data, busca, filtroStatus]);
@@ -160,7 +171,12 @@ export default function ColaboradoresAdminPage() {
 
   function adicionarDocumentos(arquivos: FileList | null) {
     if (!arquivos || arquivos.length === 0) return;
-    const novos = Array.from(arquivos).map((arquivo) => ({ chave: chaveDoArquivo(arquivo), arquivo, tipo: 'OUTRO' as TipoDocumentoColaborador }));
+    const categoriaPadrao = categorias.find((c) => c.nome === 'Outro')?.id ?? categorias[0]?.id ?? '';
+    const novos = Array.from(arquivos).map((arquivo) => ({
+      chave: chaveDoArquivo(arquivo),
+      arquivo,
+      categoriaId: categoriaPadrao,
+    }));
     setDocumentosPendentes((atual) => {
       const chavesExistentes = new Set(atual.map((d) => d.chave));
       return [...atual, ...novos.filter((d) => !chavesExistentes.has(d.chave))];
@@ -171,8 +187,8 @@ export default function ColaboradoresAdminPage() {
     setDocumentosPendentes((atual) => atual.filter((d) => d.chave !== chave));
   }
 
-  function alterarTipoDocumentoPendente(chave: string, tipo: TipoDocumentoColaborador) {
-    setDocumentosPendentes((atual) => atual.map((d) => (d.chave === chave ? { ...d, tipo } : d)));
+  function alterarCategoriaDocumentoPendente(chave: string, categoriaId: string) {
+    setDocumentosPendentes((atual) => atual.map((d) => (d.chave === chave ? { ...d, categoriaId } : d)));
   }
 
   function abrirNovo() {
@@ -182,6 +198,7 @@ export default function ColaboradoresAdminPage() {
     setMostrarSenha(false);
     setAbaCadastro('geral');
     setDocumentosPendentes([]);
+    setFotoPendente(null);
     setDialogAberto(true);
   }
 
@@ -215,6 +232,7 @@ export default function ColaboradoresAdminPage() {
     setErro(null);
     setAbaCadastro('geral');
     setDocumentosPendentes([]);
+    setFotoPendente(null);
     setDialogAberto(true);
   }
 
@@ -286,18 +304,25 @@ export default function ColaboradoresAdminPage() {
     // parecer que o cadastro inteiro não foi. Por isso o diálogo fecha de
     // todo jeito, e o aviso de falha vai para a lista (que continua
     // visível), não para dentro do diálogo que está se fechando.
-    if (documentosPendentes.length > 0) {
+    if (documentosPendentes.length > 0 || fotoPendente) {
       setDocumentoEnviando(true);
       const falhas: string[] = [];
       for (const documento of documentosPendentes) {
         try {
           await uploadDocumento(colaboradorId, {
             nome: documento.arquivo.name,
-            tipo: documento.tipo,
+            categoriaId: documento.categoriaId,
             arquivo: documento.arquivo,
           });
         } catch {
           falhas.push(documento.arquivo.name);
+        }
+      }
+      if (fotoPendente) {
+        try {
+          await uploadAvatar(colaboradorId, fotoPendente);
+        } catch {
+          falhas.push('foto de perfil');
         }
       }
       setDocumentoEnviando(false);
@@ -358,6 +383,7 @@ export default function ColaboradoresAdminPage() {
             className="max-w-[180px]"
           >
             <option value="ativos">Ativos</option>
+            <option value="pendentes">Pendentes de autorização</option>
             <option value="desativados">Desativados</option>
             <option value="todos">Todos</option>
           </Select>
@@ -377,7 +403,6 @@ export default function ColaboradoresAdminPage() {
                 <Th>E-mail</Th>
                 <Th>Departamento</Th>
                 <Th>Perfil</Th>
-                <Th>Acesso à plataforma</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Ações</Th>
               </tr>
@@ -385,7 +410,18 @@ export default function ColaboradoresAdminPage() {
             <tbody>
               {usuariosFiltrados.map((usuario) => (
                 <Tr key={usuario.id}>
-                  <Td className="font-bold text-[var(--color-text-primary)]">{usuario.nome}</Td>
+                  <Td className="font-bold text-[var(--color-text-primary)]">
+                    <div className="flex items-center gap-2">
+                      {usuario.avatarUrl ? (
+                        <img src={resolverAvatarUrl(usuario.avatarUrl)!} alt="" className="h-7 w-7 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-surface-hover)] text-xs font-bold text-[var(--color-text-secondary)]">
+                          {usuario.nome.trim().charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                      {usuario.nome}
+                    </div>
+                  </Td>
                   <Td>{usuario.email}</Td>
                   <Td>
                     {usuario.group?.nome ?? '—'}
@@ -394,13 +430,8 @@ export default function ColaboradoresAdminPage() {
                     )}
                   </Td>
                   <Td>
-                    <Badge tone={usuario.role === 'ADMIN' ? 'purple' : 'blue'}>
-                      {usuario.role === 'ADMIN' ? 'Administrador' : 'Colaborador'}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    <Badge tone={usuario.acessoPlataforma ? 'blue' : 'neutral'}>
-                      {usuario.acessoPlataforma ? 'Com acesso' : 'Sem acesso'}
+                    <Badge tone={usuario.role === 'ADMIN' ? 'purple' : usuario.role === 'GESTOR' ? 'success' : 'blue'}>
+                      {usuario.role === 'ADMIN' ? 'Administrador' : usuario.role === 'GESTOR' ? 'Gestor' : 'Colaborador'}
                     </Badge>
                   </Td>
                   <Td>
@@ -417,11 +448,12 @@ export default function ColaboradoresAdminPage() {
                     <div className="inline-flex items-center justify-end gap-2">
                       <Link
                         to={`/configuracoes/colaboradores/${usuario.id}`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-button border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[13px] font-bold text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)]"
                         aria-label={`Ficha completa de ${usuario.nome}`}
                         title="Ficha completa"
                       >
                         <FileText aria-hidden="true" className="h-4 w-4" />
+                        Ficha
                       </Link>
                       {usuario.ativo && (
                         <Button
@@ -562,6 +594,19 @@ export default function ColaboradoresAdminPage() {
               />
             </FormField>
 
+            <FormField
+              label="Foto de perfil (opcional)"
+              htmlFor="foto-perfil"
+              hint={emEdicao?.avatarUrl ? 'Enviar uma nova foto substitui a atual.' : 'JPG ou PNG, até 5 MB.'}
+            >
+              <Input
+                id="foto-perfil"
+                type="file"
+                accept="image/jpeg,image/png"
+                onChange={(e) => setFotoPendente(e.target.files?.[0] ?? null)}
+              />
+            </FormField>
+
           </div>
 
           <div
@@ -616,7 +661,7 @@ export default function ColaboradoresAdminPage() {
               <Select id="gestorId" value={form.gestorId} onChange={(e) => alterar('gestorId', e.target.value)}>
                 <option value="">— Sem gestor —</option>
                 {(usuariosQuery.data ?? [])
-                  .filter((u) => u.ativo && u.id !== emEdicao?.id)
+                  .filter((u) => u.ativo && u.statusColaborador !== 'PENDENTE' && u.id !== emEdicao?.id)
                   .map((usuario) => (
                     <option key={usuario.id} value={usuario.id}>
                       {usuario.nome}
@@ -737,6 +782,7 @@ export default function ColaboradoresAdminPage() {
               <FormField label="Perfil de acesso" htmlFor="role">
                 <Select id="role" value={form.role} onChange={(e) => alterar('role', e.target.value as UserRole)}>
                   <option value="USER">Colaborador</option>
+                  <option value="GESTOR">Gestor</option>
                   <option value="ADMIN">Administrador</option>
                 </Select>
               </FormField>
@@ -796,7 +842,6 @@ export default function ColaboradoresAdminPage() {
                   type="file"
                   multiple
                   accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  className="max-w-xs"
                   onChange={(e) => {
                     adicionarDocumentos(e.target.files);
                     e.target.value = '';
@@ -813,16 +858,14 @@ export default function ColaboradoresAdminPage() {
                           {documento.arquivo.name}
                         </span>
                         <Select
-                          value={documento.tipo}
-                          onChange={(e) =>
-                            alterarTipoDocumentoPendente(documento.chave, e.target.value as TipoDocumentoColaborador)
-                          }
+                          value={documento.categoriaId}
+                          onChange={(e) => alterarCategoriaDocumentoPendente(documento.chave, e.target.value)}
                           className="w-48"
-                          aria-label={`Tipo do documento ${documento.arquivo.name}`}
+                          aria-label={`Categoria do documento ${documento.arquivo.name}`}
                         >
-                          {TIPOS_DOCUMENTO.map((opcao) => (
-                            <option key={opcao.value} value={opcao.value}>
-                              {opcao.label}
+                          {categorias.map((categoria) => (
+                            <option key={categoria.id} value={categoria.id}>
+                              {categoria.nome}
                             </option>
                           ))}
                         </Select>

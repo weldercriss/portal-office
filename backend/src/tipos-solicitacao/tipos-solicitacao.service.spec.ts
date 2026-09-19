@@ -60,6 +60,39 @@ describe('TiposSolicitacaoService', () => {
       const dados = prismaMock.tipoSolicitacao.create.mock.calls[0][0].data;
       expect(typeof dados.tokenLinkPublico).toBe('string');
     });
+
+    it('rejects ehPreAdmissao sem o link público habilitado', async () => {
+      await expect(
+        service.create({ nome: 'Pré-cadastro', usaFormulario: true, ehPreAdmissao: true }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects ehPreAdmissao sem campo mapeado NOME ou EMAIL', async () => {
+      await expect(
+        service.create({
+          nome: 'Pré-cadastro',
+          usaFormulario: true,
+          permiteLinkPublico: true,
+          ehPreAdmissao: true,
+          camposFormulario: [{ label: 'Nome', tipo: 'TEXTO', mapeamento: 'NOME' }],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('accepts ehPreAdmissao com link público e campos NOME/EMAIL mapeados', async () => {
+      prismaMock.tipoSolicitacao.create.mockResolvedValue({ id: 't1' });
+      await service.create({
+        nome: 'Pré-cadastro',
+        usaFormulario: true,
+        permiteLinkPublico: true,
+        ehPreAdmissao: true,
+        camposFormulario: [
+          { label: 'Nome', tipo: 'TEXTO', mapeamento: 'NOME' },
+          { label: 'E-mail', tipo: 'TEXTO', mapeamento: 'EMAIL' },
+        ],
+      });
+      expect(prismaMock.tipoSolicitacao.create).toHaveBeenCalled();
+    });
   });
 
   describe('update', () => {

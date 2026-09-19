@@ -18,7 +18,7 @@ import { Select } from '../../../components/ui/Select';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
 import { useTiposSolicitacao } from '../../tipos-solicitacao/hooks/useTiposSolicitacao';
 import { useUsuarios } from '../../usuarios/hooks/useUsuarios';
-import { CamposFormularioForm } from '../components/CamposFormularioForm';
+import { CamposFormularioForm } from '../../../components/system/CamposFormularioForm';
 import { RespostasFormularioDialog } from '../components/RespostasFormularioDialog';
 import {
   useAnexarCampoFormulario,
@@ -210,7 +210,7 @@ export default function SolicitacoesAdminPage() {
       <ListToolbar
         actions={
           <>
-            <Button variant="secondary" className="gap-1.5" onClick={() => navigate('/configuracoes/tipos-solicitacao')}>
+            <Button variant="secondary" className="gap-1.5" onClick={() => navigate('/configuracoes/tipos-e-categorias/solicitacao')}>
               <Settings aria-hidden="true" className="h-4 w-4" />
               Configurar tipos
             </Button>

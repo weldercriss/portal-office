@@ -1,9 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { unlink } from 'fs/promises';
-import { join } from 'path';
+import { Prisma, TipoChecklist } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import { copyFile, unlink } from 'fs/promises';
+import { extname, join } from 'path';
 import { ehAdminOuSuperior } from '../auth/roles.util';
+import { CampoFormularioValor, validarRespostasContraCampos } from '../common/campo-formulario.util';
+import { uploadDir } from '../common/upload.storage';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
+import { OnboardingService } from '../onboarding/onboarding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ANEXO_DIR } from './anexo.storage';
 import { CreateSolicitacaoDto } from './dto/create-solicitacao.dto';
@@ -17,13 +21,8 @@ const SOLICITACAO_INCLUDE = {
   tipo: true,
 } as const;
 
-/** Formato de cada item de TipoSolicitacao.camposFormulario (Json) — ver common/dto/campo-formulario.dto.ts. */
-interface CampoFormularioValor {
-  id: string;
-  label: string;
-  tipo: string;
-  obrigatorio?: boolean;
-}
+/** Categoria onde os anexos ARQUIVO do pré-cadastro caem — criada sob demanda se ainda não existir. */
+const CATEGORIA_PRE_ADMISSAO = 'Documentação de admissão';
 
 export interface FiltrosSolicitacao {
   userId?: string;
@@ -58,6 +57,7 @@ export class SolicitacoesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificacoesService: NotificacoesService,
+    private readonly onboardingService: OnboardingService,
   ) {}
 
   findAll(filtros: FiltrosSolicitacao) {
@@ -94,7 +94,7 @@ export class SolicitacoesService {
     this.validarPeriodo(dto.dataInicio, dto.dataFim);
     await this.validarResponsavel(dto.responsavelId);
     if (tipo.usaFormulario) {
-      this.validarRespostasContraCampos(tipo.camposFormulario as CampoFormularioValor[] | null, dto.respostasFormulario ?? {}, {
+      validarRespostasContraCampos(tipo.camposFormulario as CampoFormularioValor[] | null, dto.respostasFormulario ?? {}, {
         exigirObrigatorios: true,
       });
     }
@@ -162,7 +162,7 @@ export class SolicitacoesService {
       await this.validarResponsavel(dto.responsavelId);
     }
     if (dto.respostasFormulario) {
-      this.validarRespostasContraCampos(atual.tipo.camposFormulario as CampoFormularioValor[] | null, dto.respostasFormulario, {
+      validarRespostasContraCampos(atual.tipo.camposFormulario as CampoFormularioValor[] | null, dto.respostasFormulario, {
         exigirObrigatorios: false,
       });
     }
@@ -324,12 +324,21 @@ export class SolicitacoesService {
     return { tipoNome: tipo.nome, camposFormulario: tipo.camposFormulario };
   }
 
-  /** Cada envio pelo link público cria uma Solicitacao nova, sem colaborador vinculado (userId nulo). */
+  /**
+   * Cada envio pelo link público cria uma Solicitacao nova. Pra um tipo comum fica sem
+   * colaborador vinculado (userId nulo); pra um tipo ehPreAdmissao, cria o User em
+   * status PENDENTE e já vincula a Solicitacao a ele (ver criarSolicitacaoPreAdmissao).
+   */
   async criarSolicitacaoPublica(tipoToken: string, respostas: Record<string, unknown>) {
     const tipo = await this.obterTipoPublicoValido(tipoToken);
-    this.validarRespostasContraCampos(tipo.camposFormulario as CampoFormularioValor[] | null, respostas, {
+    validarRespostasContraCampos(tipo.camposFormulario as CampoFormularioValor[] | null, respostas, {
       exigirObrigatorios: true,
     });
+
+    if (tipo.ehPreAdmissao) {
+      return this.criarSolicitacaoPreAdmissao(tipo, respostas);
+    }
+
     const solicitacao = await this.prisma.solicitacao.create({
       data: {
         tipoId: tipo.id,
@@ -348,19 +357,99 @@ export class SolicitacoesService {
     return { id: solicitacao.id };
   }
 
-  /** Upload de arquivo pra uma resposta anônima recém-criada, ainda dentro do mesmo tipo e não decidida. */
+  /** Upload de arquivo pra uma resposta recém-criada pelo link público, ainda dentro do mesmo tipo e não decidida. */
   async anexarCampoFormularioPublico(tipoToken: string, solicitacaoId: string, campoId: string, file: Express.Multer.File) {
     const tipo = await this.obterTipoPublicoValido(tipoToken).catch(async (erro) => {
       await unlink(file.path).catch(() => undefined);
       throw erro;
     });
     const solicitacao = await this.prisma.solicitacao.findUnique({ where: { id: solicitacaoId } });
-    if (!solicitacao || solicitacao.tipoId !== tipo.id || solicitacao.userId || solicitacao.status !== 'SOLICITADA') {
+    // registradoPorId (não userId) é o que distingue "veio do link público": uma pré-admissão já tem
+    // userId preenchido pelo User recém-criado, mas nunca um registradoPorId (ninguém autenticado a criou).
+    if (!solicitacao || solicitacao.tipoId !== tipo.id || solicitacao.registradoPorId || solicitacao.status !== 'SOLICITADA') {
       await unlink(file.path).catch(() => undefined);
       throw new NotFoundException('Resposta não encontrada');
     }
     await this.gravarAnexoCampo(solicitacaoId, tipo.camposFormulario, solicitacao.respostasFormulario, campoId, file);
+    if (tipo.ehPreAdmissao && solicitacao.userId) {
+      await this.copiarAnexoParaDocumento(solicitacao.userId, file);
+    }
     return { ok: true };
+  }
+
+  /**
+   * Extrai nome/e-mail dos campos mapeados, cria o User (statusColaborador=PENDENTE,
+   * sem acesso à plataforma) e a Solicitacao já vinculada a ele numa transação, gera o
+   * checklist de admissão padrão e avisa o RH pra revisar.
+   */
+  private async criarSolicitacaoPreAdmissao(
+    tipo: { id: string; nome: string; camposFormulario: unknown },
+    respostas: Record<string, unknown>,
+  ) {
+    const { nome, email } = this.extrairIdentidade(tipo.camposFormulario as CampoFormularioValor[], respostas);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new BadRequestException('Informe um e-mail válido');
+    }
+    const existente = await this.prisma.user.findUnique({ where: { email } });
+    // Mensagem genérica de propósito: não confirma pra quem responde que aquele e-mail já tem cadastro.
+    if (existente) throw new BadRequestException('Não foi possível concluir o pré-cadastro com os dados informados');
+
+    const { user, solicitacao } = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { nome, email, senhaHash: '', acessoPlataforma: false, statusColaborador: 'PENDENTE', role: 'USER' },
+      });
+      const solicitacao = await tx.solicitacao.create({
+        data: {
+          userId: user.id,
+          tipoId: tipo.id,
+          dataInicio: new Date(),
+          respostasFormulario: respostas as Prisma.InputJsonValue,
+          status: 'SOLICITADA',
+        },
+      });
+      return { user, solicitacao };
+    });
+
+    await this.onboardingService.gerarPadrao(user.id, TipoChecklist.ADMISSAO);
+    await this.notificacoesService.criarParaAdmins({
+      tipo: 'PRE_CADASTRO_CRIADO',
+      titulo: `Novo pré-cadastro: ${nome}`,
+      mensagem: `${nome} enviou o pré-cadastro de ${tipo.nome}. Revise os dados e autorize em Colaboradores.`,
+      telegramTexto: `🆕 Novo pré-cadastro!\n\n${nome} enviou o formulário de ${tipo.nome}.\n\nRevise e autorize em Configurações → Colaboradores.`,
+      link: '/configuracoes/colaboradores',
+    });
+    return { id: solicitacao.id };
+  }
+
+  private extrairIdentidade(campos: CampoFormularioValor[] | null, respostas: Record<string, unknown>) {
+    const campoNome = (campos ?? []).find((c) => c.mapeamento === 'NOME');
+    const campoEmail = (campos ?? []).find((c) => c.mapeamento === 'EMAIL');
+    const nome = campoNome ? String(respostas[campoNome.id] ?? '').trim() : '';
+    const email = campoEmail ? String(respostas[campoEmail.id] ?? '').trim().toLowerCase() : '';
+    if (!nome || !email) throw new BadRequestException('Preencha nome e e-mail para concluir o pré-cadastro');
+    return { nome, email };
+  }
+
+  /** Copia o anexo já salvo em uploads/solicitacoes para uploads/documentos, como DocumentoColaborador do próprio pré-cadastrado. */
+  private async copiarAnexoParaDocumento(userId: string, file: Express.Multer.File) {
+    const categoria = await this.prisma.categoriaDocumento.upsert({
+      where: { nome: CATEGORIA_PRE_ADMISSAO },
+      create: { nome: CATEGORIA_PRE_ADMISSAO },
+      update: {},
+    });
+    const novoNome = `${randomUUID()}${extname(file.filename)}`;
+    await copyFile(join(ANEXO_DIR, file.filename), join(uploadDir('documentos'), novoNome));
+    await this.prisma.documentoColaborador.create({
+      data: {
+        userId,
+        categoriaId: categoria.id,
+        nome: file.originalname,
+        arquivoNome: file.originalname,
+        arquivoCaminho: novoNome,
+        arquivoMimeType: file.mimetype,
+        criadoPorId: userId,
+      },
+    });
   }
 
   async existeAfastamentoNoPeriodo(userId: string, data: Date) {
@@ -427,25 +516,6 @@ export class SolicitacoesService {
 
   private comoObjeto(valor: unknown): Record<string, unknown> {
     return (valor as Record<string, unknown>) ?? {};
-  }
-
-  private validarRespostasContraCampos(
-    campos: CampoFormularioValor[] | null,
-    respostas: Record<string, unknown>,
-    { exigirObrigatorios }: { exigirObrigatorios: boolean },
-  ) {
-    const camposDef = campos ?? [];
-    const idsValidos = new Set(camposDef.map((campo) => campo.id));
-    for (const chave of Object.keys(respostas)) {
-      if (!idsValidos.has(chave)) throw new BadRequestException('Resposta de formulário com campo desconhecido');
-    }
-    if (!exigirObrigatorios) return;
-    for (const campo of camposDef) {
-      if (!campo.obrigatorio || campo.tipo === 'ARQUIVO') continue;
-      const valor = respostas[campo.id];
-      const preenchido = Array.isArray(valor) ? valor.length > 0 : valor !== undefined && valor !== null && valor !== '';
-      if (!preenchido) throw new BadRequestException(`Preencha o campo obrigatório "${campo.label}"`);
-    }
   }
 
   private validarPeriodo(dataInicio: string, dataFim?: string) {

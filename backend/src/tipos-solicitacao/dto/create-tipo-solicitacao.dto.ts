@@ -31,4 +31,8 @@ export class CreateTipoSolicitacaoDto {
   @IsOptional()
   @IsBoolean()
   permiteLinkPublico?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  ehPreAdmissao?: boolean;
 }

@@ -12,7 +12,7 @@ import { Input } from '../../../components/ui/Input';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { StatusToggle } from '../../../components/ui/StatusToggle';
 import { Table, Td, Th, Tr } from '../../../components/ui/Table';
-import { CamposFormularioEditor } from '../components/CamposFormularioEditor';
+import { CamposFormularioEditor } from '../../../components/system/CamposFormularioEditor';
 import {
   useCreateTipoSolicitacao,
   useDeleteTipoSolicitacaoPermanently,
@@ -38,6 +38,7 @@ export default function TiposSolicitacaoAdminPage() {
   const [usaFormulario, setUsaFormulario] = useState(false);
   const [camposFormulario, setCamposFormulario] = useState<CampoFormulario[]>([]);
   const [permiteLinkPublico, setPermiteLinkPublico] = useState(false);
+  const [ehPreAdmissao, setEhPreAdmissao] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [erroLista, setErroLista] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
@@ -58,6 +59,7 @@ export default function TiposSolicitacaoAdminPage() {
     setUsaFormulario(false);
     setCamposFormulario([]);
     setPermiteLinkPublico(false);
+    setEhPreAdmissao(false);
     setErro(null);
     setCopiado(false);
     setDialogAberto(true);
@@ -72,6 +74,7 @@ export default function TiposSolicitacaoAdminPage() {
     setUsaFormulario(tipo.usaFormulario);
     setCamposFormulario(tipo.camposFormulario ?? []);
     setPermiteLinkPublico(tipo.permiteLinkPublico);
+    setEhPreAdmissao(tipo.ehPreAdmissao);
     setErro(null);
     setCopiado(false);
     setDialogAberto(true);
@@ -94,6 +97,7 @@ export default function TiposSolicitacaoAdminPage() {
       usaFormulario,
       camposFormulario: usaFormulario ? camposFormulario : [],
       permiteLinkPublico: linkPublicoDisponivel && permiteLinkPublico,
+      ehPreAdmissao: linkPublicoDisponivel && permiteLinkPublico && ehPreAdmissao,
     };
     try {
       if (emEdicao) {
@@ -230,7 +234,13 @@ export default function TiposSolicitacaoAdminPage() {
             Coleta dados via formulário (permite configurar campos personalizados)
           </label>
 
-          {usaFormulario && <CamposFormularioEditor value={camposFormulario} onChange={setCamposFormulario} />}
+          {usaFormulario && (
+            <CamposFormularioEditor
+              value={camposFormulario}
+              onChange={setCamposFormulario}
+              ehPreAdmissao={linkPublicoDisponivel && permiteLinkPublico && ehPreAdmissao}
+            />
+          )}
 
           {linkPublicoDisponivel && (
             <>
@@ -242,6 +252,16 @@ export default function TiposSolicitacaoAdminPage() {
                 />
                 Aceitar respostas por link público, sem login (como um Google Forms)
               </label>
+              {permiteLinkPublico && (
+                <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={ehPreAdmissao}
+                    onChange={(e) => setEhPreAdmissao(e.target.checked)}
+                  />
+                  É um pré-cadastro (cria automaticamente um colaborador pendente de autorização)
+                </label>
+              )}
               {permiteLinkPublico && emEdicao?.tokenLinkPublico && (
                 <div className="flex items-center gap-2">
                   <Input readOnly value={`${window.location.origin}/formulario-publico/${emEdicao.tokenLinkPublico}`} />

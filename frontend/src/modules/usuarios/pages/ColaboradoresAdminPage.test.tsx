@@ -20,6 +20,7 @@ const usuario: Usuario = {
   ativo: true,
   acessoPlataforma: true,
   googleLinkedAt: null,
+  avatarUrl: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
   dataNascimento: null,
   dataAdmissao: null,
@@ -34,6 +35,8 @@ const usuario: Usuario = {
   salario: null,
   beneficios: null,
   statusColaborador: 'ATIVO',
+  dataDesligamento: null,
+  motivoDesligamento: null,
   bancoNome: null,
   bancoAgencia: null,
   bancoConta: null,
@@ -60,9 +63,21 @@ vi.mock('../../subareas/hooks/useSubAreas', () => ({
   useSubAreas: () => ({ data: [] }),
 }));
 
-const { uploadDocumentoMock } = vi.hoisted(() => ({ uploadDocumentoMock: vi.fn().mockResolvedValue({}) }));
+const categorias = [
+  { id: 'cat-contrato', nome: 'Contrato', ativo: true, criadoEm: '2026-01-01T00:00:00.000Z', _count: { documentos: 0 } },
+  { id: 'cat-outro', nome: 'Outro', ativo: true, criadoEm: '2026-01-01T00:00:00.000Z', _count: { documentos: 0 } },
+];
+vi.mock('../../categorias-documento/hooks/useCategoriasDocumento', () => ({
+  useCategoriasDocumento: () => ({ data: categorias }),
+}));
+
+const { uploadDocumentoMock, uploadAvatarMock } = vi.hoisted(() => ({
+  uploadDocumentoMock: vi.fn().mockResolvedValue({}),
+  uploadAvatarMock: vi.fn().mockResolvedValue({}),
+}));
 vi.mock('../../colaboradores-rh/api/colaborador-rh.api', () => ({
   uploadDocumento: uploadDocumentoMock,
+  uploadAvatar: uploadAvatarMock,
 }));
 
 describe('ColaboradoresAdminPage', () => {
@@ -219,12 +234,12 @@ describe('ColaboradoresAdminPage', () => {
 
     const arquivo = new File(['conteudo'], 'contrato.pdf', { type: 'application/pdf' });
     await userEvent.upload(screen.getByLabelText('Anexar documentos (opcional)'), arquivo);
-    await userEvent.selectOptions(screen.getByLabelText('Tipo do documento contrato.pdf'), 'CONTRATO');
+    await userEvent.selectOptions(screen.getByLabelText('Categoria do documento contrato.pdf'), 'cat-contrato');
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(uploadDocumentoMock).toHaveBeenCalledWith('novo1', {
       nome: 'contrato.pdf',
-      tipo: 'CONTRATO',
+      categoriaId: 'cat-contrato',
       arquivo,
     });
   });
@@ -253,7 +268,7 @@ describe('ColaboradoresAdminPage', () => {
     expect(uploadDocumentoMock).toHaveBeenCalledTimes(1);
     expect(uploadDocumentoMock).toHaveBeenCalledWith('novo2', {
       nome: 'contrato.pdf',
-      tipo: 'OUTRO',
+      categoriaId: 'cat-outro',
       arquivo: contrato,
     });
   });

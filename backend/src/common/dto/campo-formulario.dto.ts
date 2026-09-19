@@ -24,6 +24,11 @@ export class CampoFormularioDto {
   @IsBoolean()
   exibirNaListagem?: boolean;
 
+  /** Só usado quando TipoSolicitacao.ehPreAdmissao=true: qual campo vira o nome/e-mail do User criado. */
+  @IsOptional()
+  @IsIn(['NOME', 'EMAIL'])
+  mapeamento?: 'NOME' | 'EMAIL';
+
   @ValidateIf((campo: CampoFormularioDto) => campo.tipo === 'SELECAO')
   @IsArray()
   @ArrayMinSize(2)

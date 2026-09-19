@@ -19,6 +19,7 @@ const tipo: TipoSolicitacao = {
   camposFormulario: null,
   permiteLinkPublico: false,
   tokenLinkPublico: null,
+  ehPreAdmissao: false,
   criadoEm: '2026-09-01T00:00:00.000Z',
 };
 
