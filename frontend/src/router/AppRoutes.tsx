@@ -2,6 +2,10 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AppShell } from '../app/layouts/AppShell';
 import { ConfiguracoesLayout } from '../app/layouts/ConfiguracoesLayout';
+import { NotificacoesLayout } from '../app/layouts/NotificacoesLayout';
+import { PlataformaLayout } from '../app/layouts/PlataformaLayout';
+import { RelatoriosLayout } from '../app/layouts/RelatoriosLayout';
+import { TiposECategoriasLayout } from '../app/layouts/TiposECategoriasLayout';
 import { LoadingState } from '../components/ui/LoadingState';
 import FormularioPublicoPage from '../modules/solicitacoes/pages/FormularioPublicoPage';
 import LoginPage from '../pages/LoginPage';
@@ -27,10 +31,20 @@ const TiposSolicitacaoAdminPage = lazy(() => import('../modules/tipos-solicitaca
 const TiposPlantaoAdminPage = lazy(() => import('../modules/tipos-plantao/pages/TiposPlantaoAdminPage'));
 const PatrimonioPage = lazy(() => import('../modules/patrimonio/pages/PatrimonioPage'));
 const TiposEquipamentoAdminPage = lazy(() => import('../modules/patrimonio/pages/TiposEquipamentoAdminPage'));
+const CategoriasDocumentoAdminPage = lazy(() => import('../modules/categorias-documento/pages/CategoriasDocumentoAdminPage'));
+const CentralDocumentosPage = lazy(() => import('../modules/central-documentos/pages/CentralDocumentosPage'));
 const TelegramConfigAdminPage = lazy(() => import('../modules/telegram-config/pages/TelegramConfigAdminPage'));
+const AvisosAniversarioAdminPage = lazy(() => import('../modules/avisos-aniversario/pages/AvisosAniversarioAdminPage'));
 const FichaColaboradorPage = lazy(() => import('../modules/colaboradores-rh/pages/FichaColaboradorPage'));
+const MinhaEquipePage = lazy(() => import('../modules/equipe/pages/MinhaEquipePage'));
 const VagasAdminPage = lazy(() => import('../modules/recrutamento/pages/VagasAdminPage'));
+const TurnoverAdminPage = lazy(() => import('../modules/relatorios/pages/TurnoverAdminPage'));
+const ColaboradoresRelatorioPage = lazy(() => import('../modules/relatorios/pages/ColaboradoresRelatorioPage'));
+const PesquisasRelatorioPage = lazy(() => import('../modules/relatorios/pages/PesquisasRelatorioPage'));
 const VagaDetalhePage = lazy(() => import('../modules/recrutamento/pages/VagaDetalhePage'));
+const PesquisasAdminPage = lazy(() => import('../modules/pesquisas/pages/PesquisasAdminPage'));
+const PesquisasPage = lazy(() => import('../modules/pesquisas/pages/PesquisasPage'));
+const PesquisaResultadoPage = lazy(() => import('../modules/pesquisas/pages/PesquisaResultadoPage'));
 
 export function landingPath(user: AuthUser | null): string {
   if (!user) return '/login';
@@ -74,6 +88,14 @@ export function AppRoutes() {
         />
         <Route path="/perfil" element={<MeuPerfilPage />} />
         <Route
+          path="/minha-equipe"
+          element={
+            <ProtectedRoute requireRole="GESTOR">
+              <MinhaEquipePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/plantoes"
           element={
             <ProtectedRoute requireRotina="plantoes">
@@ -110,26 +132,41 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/convites-agenda"
+          path="/agenda"
           element={
             <ProtectedRoute requireRole="ADMIN">
               <ConvitesAgendaPage />
             </ProtectedRoute>
           }
         />
+        <Route path="/convites-agenda" element={<Navigate to="/agenda" replace />} />
         <Route
-          path="/logs"
+          path="/central-documentos"
           element={
-            <ProtectedRoute requireRole="MASTER">
-              <LogsAplicacaoPage />
+            <ProtectedRoute requireRole="ADMIN">
+              <CentralDocumentosPage />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/master/usuarios"
+          path="/relatorios"
           element={
-            <ProtectedRoute requireRole="MASTER">
-              <MasterUsuariosPage />
+            <ProtectedRoute requireRole="ADMIN">
+              <RelatoriosLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/relatorios/colaboradores" replace />} />
+          <Route path="colaboradores" element={<ColaboradoresRelatorioPage />} />
+          <Route path="turnover" element={<TurnoverAdminPage />} />
+          <Route path="pesquisas" element={<PesquisasRelatorioPage />} />
+        </Route>
+        <Route path="/pesquisas" element={user && satisfazRole(user.role, 'ADMIN') ? <PesquisasAdminPage /> : <PesquisasPage />} />
+        <Route
+          path="/pesquisas/:id"
+          element={
+            <ProtectedRoute requireRole="ADMIN">
+              <PesquisaResultadoPage />
             </ProtectedRoute>
           }
         />
@@ -145,25 +182,47 @@ export function AppRoutes() {
           <Route path="colaboradores" element={<ColaboradoresAdminPage />} />
           <Route path="departamentos" element={<DepartamentosAdminPage />} />
           <Route path="permissoes" element={<PermissoesAdminPage />} />
-          <Route path="tipos-solicitacao" element={<TiposSolicitacaoAdminPage />} />
-          <Route path="tipos-equipamento" element={<TiposEquipamentoAdminPage />} />
+          <Route path="tipos-e-categorias" element={<TiposECategoriasLayout />}>
+            <Route index element={<Navigate to="/configuracoes/tipos-e-categorias/solicitacao" replace />} />
+            <Route path="solicitacao" element={<TiposSolicitacaoAdminPage />} />
+            <Route path="equipamento" element={<TiposEquipamentoAdminPage />} />
+            <Route path="documento" element={<CategoriasDocumentoAdminPage />} />
+          </Route>
+          <Route path="tipos-solicitacao" element={<Navigate to="/configuracoes/tipos-e-categorias/solicitacao" replace />} />
+          <Route path="tipos-equipamento" element={<Navigate to="/configuracoes/tipos-e-categorias/equipamento" replace />} />
+          <Route path="categorias-documento" element={<Navigate to="/configuracoes/tipos-e-categorias/documento" replace />} />
           <Route path="salas" element={<SalasAdminPage />} />
           <Route path="plantoes" element={<TiposPlantaoAdminPage />} />
           <Route path="plantoes/turnos" element={<Navigate to="/configuracoes/plantoes" replace />} />
           <Route path="plantoes/tipos-plantao" element={<Navigate to="/configuracoes/plantoes" replace />} />
           <Route path="turnos" element={<Navigate to="/configuracoes/plantoes" replace />} />
           <Route path="tipos-plantao" element={<Navigate to="/configuracoes/plantoes" replace />} />
-          <Route path="telegram" element={<TelegramConfigAdminPage />} />
+          <Route path="notificacoes" element={<NotificacoesLayout />}>
+            <Route index element={<Navigate to="/configuracoes/notificacoes/internas" replace />} />
+            <Route path="internas" element={<AvisosAniversarioAdminPage />} />
+            <Route path="telegram" element={<TelegramConfigAdminPage />} />
+          </Route>
+          <Route path="telegram" element={<Navigate to="/configuracoes/notificacoes/telegram" replace />} />
+          <Route path="avisos-aniversario" element={<Navigate to="/configuracoes/notificacoes/internas" replace />} />
           <Route path="vagas" element={<VagasAdminPage />} />
+          <Route
+            path="plataforma"
+            element={
+              <ProtectedRoute requireRole="MASTER">
+                <PlataformaLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/configuracoes/plataforma/usuarios-master" replace />} />
+            <Route path="usuarios-master" element={<MasterUsuariosPage />} />
+            <Route path="logs" element={<LogsAplicacaoPage />} />
+          </Route>
+          <Route path="usuarios-master" element={<Navigate to="/configuracoes/plataforma/usuarios-master" replace />} />
+          <Route path="logs" element={<Navigate to="/configuracoes/plataforma/logs" replace />} />
         </Route>
-        <Route
-          path="/configuracoes/colaboradores/:id"
-          element={
-            <ProtectedRoute requireRole="ADMIN">
-              <FichaColaboradorPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/logs" element={<Navigate to="/configuracoes/plataforma/logs" replace />} />
+        <Route path="/master/usuarios" element={<Navigate to="/configuracoes/plataforma/usuarios-master" replace />} />
+        <Route path="/configuracoes/colaboradores/:id" element={<FichaColaboradorPage />} />
         <Route
           path="/configuracoes/vagas/:id"
           element={

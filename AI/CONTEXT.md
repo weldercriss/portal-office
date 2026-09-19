@@ -87,7 +87,13 @@ Cadastro e edição de colaboradores, ativação, acesso à plataforma, senha, p
 
 A ficha administrativa do colaborador reúne dependentes, histórico profissional, checklist de admissão e documentos. Também existem APIs de treinamentos e participação, além das telas de recrutamento para vagas, candidatos e entrevistas. A presença de uma API não significa que exista uma página independente para ela.
 
-O cadastro/edição permite anexar um documento opcional. Primeiro salva a pessoa e depois envia o arquivo: uma falha no upload não desfaz o cadastro. O armazenamento compartilhado de documentos aceita JPG, PNG, PDF, DOC e DOCX; downloads passam por endpoints da aplicação.
+O cadastro/edição permite anexar um documento opcional e uma foto de perfil opcional. Primeiro salva a pessoa e depois envia os arquivos: uma falha no upload não desfaz o cadastro. O armazenamento compartilhado de documentos aceita JPG, PNG, PDF, DOC e DOCX; downloads passam por endpoints da aplicação, exigindo ser o próprio dono ou `ADMIN`+.
+
+**Foto de perfil.** `User.avatarUrl` tem duas origens: a foto da conta Google (login, atualizada a cada entrada) ou upload manual pelo `ADMIN` (`avatarCaminho`/`avatarMimeType`, módulo `backend/src/avatar/`, `POST /colaboradores/:userId/avatar` restrito a JPG/PNG de até 5MB). O `GET` do mesmo caminho é **deliberadamente público** (sem guard) — a UI usa `<img src>` direto em várias telas (cabeçalho, listas, Central de Documentos) e uma tag `<img>` não consegue mandar o header `Authorization` que a API normalmente exige; mesma exposição que a foto do Google já tinha por ser uma URL pública. No frontend, `avatarUrl` pode ser uma URL absoluta (Google) ou um caminho relativo da API (upload local) — `frontend/src/lib/avatarUrl.ts` (`resolverAvatarUrl`) resolve os dois casos antes de qualquer `<img src>`.
+
+**Categorias de documento configuráveis.** O antigo enum fixo `TipoDocumentoColaborador` (6 valores) virou uma tabela administrável, `CategoriaDocumento` (`backend/src/categorias-documento/`, CRUD `ADMIN`, mesmo molde de `TipoEquipamento`), referenciada por `DocumentoColaborador.categoriaId`. `DocumentoColaborador` também ganhou `competencia` (mês/ano, dia 1 em UTC) para agrupar contracheques em "pastas" mensais — usado pela sub-aba "Contracheque" dentro de Documentos na ficha do colaborador (filtra pela categoria de nome exato "Holerite"; renomear essa categoria quebra o agrupamento, acoplamento deliberado sem flag própria no schema).
+
+**Central de Documentos.** Tela agregada em `/central-documentos` (`ADMIN`), módulo `frontend/src/modules/central-documentos/`, navegação em 3 níveis sem estado de servidor além de `GET /documentos/resumo` (lista colaboradores ativos com foto e contagem de documentos): Departamento → Colaborador → Categoria → arquivo. Reaproveita o mesmo `GET /colaboradores/:userId/documentos` já usado na ficha individual ao entrar num colaborador — não duplica a lista de documentos em outro endpoint. Desde 18/09/2026, a própria Central faz upload e exclusão de documento (não só navegação): reaproveita as mesmas rotas e hooks (`useUploadDocumento`/`useDeleteDocumento`, `POST`/`DELETE /colaboradores/:userId/documentos`) já usados na ficha do colaborador — nenhum endpoint novo, só a UI de formulário/exclusão replicada dentro de `SecaoColaborador`.
 
 ### Dashboard
 
@@ -200,14 +206,34 @@ reservas):
   cada destinatário (`ConviteAgendaResposta`: `PENDENTE`/`ACEITO`/
   `RECUSADO`/`TALVEZ`/`DESCONHECIDO`) via `obterComConvidados` — sob demanda,
   não por polling.
-- Front-end em `frontend/src/modules/convites-agenda/`, rota
-  `/convites-agenda`. `ConviteAgendaDialog.tsx` mostra o e-mail do
-  organizador (ou o botão Conectar/Reconectar, reaproveitando o mesmo fluxo
-  do card de Meu perfil) e, na criação, um campo de busca sobre os
-  colaboradores mais chips de e-mail digitado manualmente (sem cadastro no
-  portal, com aviso próprio); "Verificar disponibilidade" continua obrigatório
-  antes de enviar, mas resultado `DESCONHECIDO` não bloqueia. Convites
-  legados continuam com a tela antiga (lista fixa por `status`, sem RSVP).
+- Front-end em `frontend/src/modules/convites-agenda/`, rota `/agenda`
+  (renomeada de `/convites-agenda` em 18/09/2026 — a rota antiga só
+  redireciona via `<Navigate>`; a API/módulo backend continuam com o path
+  `/convites-agenda`, só a URL do navegador mudou). `ConviteAgendaDialog.tsx`
+  mostra o e-mail do organizador (ou o botão Conectar/Reconectar,
+  reaproveitando o mesmo fluxo do card de Meu perfil) e, na criação, um campo
+  de busca sobre os colaboradores mais chips de e-mail digitado manualmente
+  (sem cadastro no portal, com aviso próprio); "Verificar disponibilidade"
+  continua obrigatório antes de enviar, mas resultado `DESCONHECIDO` não
+  bloqueia. Convites legados continuam com a tela antiga (lista fixa por
+  `status`, sem RSVP).
+- `DELETE /convites-agenda/:id` (novo em 18/09/2026, `@Roles('MASTER')`,
+  exclusão definitiva do registro local — destinatários somem junto por
+  cascade; não mexe no evento do Google, então cancelar antes é responsabilidade
+  de quem exclui). Botão "Excluir" em `ConvitesAgendaPage.tsx`, visível só
+  pra `MASTER`, com diálogo de confirmação.
+
+### Pesquisas anônimas (NPS/NR-1) e feedback 1:1
+
+Módulo `backend/src/pesquisas/`, API `/pesquisas`, sem rotina própria: criar, listar, ver resultado agregado e encerrar são exclusivos de `ADMIN`+; qualquer colaborador autenticado só vê seus próprios convites pendentes (`GET /pesquisas/pendentes`) e responde (`POST /pesquisas/:id/responder`).
+
+**Schema pensado pra garantir anonimato de verdade.** `Pesquisa` (título, tipo `NPS`/`NR1`/`FEEDBACK_1_1`/`GERAL`, `campos` — mesmo formato Json de `TipoSolicitacao.camposFormulario`, mas sem tipo `ARQUIVO`) e `PesquisaConvite` (quem foi convidado e se já respondeu, nunca o conteúdo) têm FK entre si; `PesquisaResposta` (o conteúdo da resposta) **não tem** `userId` nem FK de volta a `PesquisaConvite` — nenhuma query, nem interna, consegue religar uma resposta a quem a enviou. `validarRespostasContraCampos` foi extraído de `solicitacoes.service.ts` para `backend/src/common/campo-formulario.util.ts` e reaproveitado aqui, em vez de duplicado.
+
+`POST /pesquisas` aceita destinatários como lista de `userIds` **ou** `{ gestorId }` — nesse segundo caso o backend expande para os liderados diretos daquele gestor (`User.gestorId`) no momento da criação (snapshot; usado por feedback 1:1). Cria `Pesquisa` + um `PesquisaConvite` por destinatário numa transação, depois notifica cada convidado (in-app + Telegram, `NotificacoesService.criar`) fora dela. `GET /pesquisas/:id/resultado` agrega por campo sem piso mínimo de respostas (decisão confirmada com o usuário): `SELECAO` vira contagem por opção, `NUMERO` vira média + lista solta de valores, `TEXTO`/`DATA` viram lista solta de valores — sempre sem vínculo a quem respondeu.
+
+Frontend em `frontend/src/modules/pesquisas/`, rota `/pesquisas` (`PesquisasAdminPage.tsx` para `ADMIN`+, `PesquisasPage.tsx` para os demais — mesmo padrão de `/solicitacoes`) e `/pesquisas/:id` (`PesquisaResultadoPage.tsx`, `ADMIN`+, gráfico `recharts` por campo `SELECAO`). `PesquisaDialog.tsx` reaproveita `CamposFormularioEditor` (nova prop `tiposPermitidos`, restringe a `TEXTO`/`NUMERO`/`DATA`/`SELECAO` — pesquisa anônima não aceita anexo); `PesquisasPage.tsx` reaproveita `CamposFormularioForm` pra renderizar as perguntas. Esse é o segundo módulo a usar os dois componentes (o primeiro era `tipos-solicitacao`/`solicitacoes`), então, seguindo a convenção de `AI/SKILLS/FRONTEND/organizacao-de-modulo.md` ("componente usado em mais de um módulo é promovido, não duplicado"), ambos foram movidos de dentro de `tipos-solicitacao/components/`/`solicitacoes/components/` para `frontend/src/components/system/CamposFormularioEditor.tsx`/`CamposFormularioForm.tsx` — continuam com a mesma API, só o caminho de import mudou.
+
+`DELETE /pesquisas/:id` (novo em 18/09/2026, `@Roles('MASTER')`, mais forte que o encerramento — `ADMIN`+ — já existente): exclusão definitiva, convites e respostas somem junto por cascade. Botão "Excluir" em `PesquisasAdminPage.tsx`, visível só pra `MASTER`, com diálogo de confirmação.
 
 ### Patrimônio e equipamentos
 
@@ -223,7 +249,11 @@ Entrega em lote: a tela de inventário (`PatrimonioPage.tsx`) tem checkbox por l
 
 Frontend em `frontend/src/modules/patrimonio/`: `PatrimonioPage.tsx` (rota `/patrimonio`, item **Equipamentos** no menu, condicionado à rotina `patrimonio`) reúne resumo por situação, filtros (tipo, situação, conservação, busca, disponibilidade), cadastro/edição do equipamento e o vínculo com colaborador via `VinculoDialog.tsx` (criar entrega, devolver, cancelar, anexar/baixar/remover termo) ou em lote via `VinculoLoteDialog.tsx`. `TiposEquipamentoAdminPage.tsx` fica em Configurações (`/configuracoes/tipos-equipamento`) para o catálogo de tipos. Consulta é liberada para quem tem a rotina; as ações de escrita (cadastrar, editar, vincular, devolver) só aparecem para `ADMIN`, e o seletor de colaborador do vínculo já exclui quem está `DESLIGADO` ou inativo.
 
-Pendências conhecidas, não implementadas: a página não mostra o **histórico** de alocações encerradas de um equipamento (só a alocação ativa, que é o que a API inclui por padrão) e a `FichaColaboradorPage.tsx` ainda não tem um bloco com os equipamentos da pessoa. Não há **aceite digital** do colaborador (confirmar recebimento pelo próprio portal) — por ora toda entrega é tratada como aceita assim que registrada; o aceite ficou combinado como evolução futura, sem desenho ainda. Testes: `equipamentos.service.spec.ts` e `alocacoes.service.spec.ts` cobrem `redigirColaborador` e `anexarTermoLote` no backend; `PatrimonioPage.test.tsx` cobre a seleção múltipla e o fallback "—" pra colaborador oculto no frontend.
+**Aceite digital do colaborador — implementado em 18/09/2026.** A assinatura em si acontece fora do portal, no Clicksign; o colaborador confirma o aceite aqui importando de volta o PDF assinado. `POST /patrimonio/alocacoes/:id/termo` deixou de ser exclusivo de `ADMIN`: o dono da alocação (`usuarioAtual.id === atual.colaboradorId`) também pode chamar; `AlocacoesService.anexarTermo` agora recebe o usuário autenticado e barra qualquer terceiro que não seja admin nem dono (`ForbiddenException`). Não foi criado campo novo para "aceite" — o próprio upload do termo, que já vira `status: ASSINADO`, é o registro do aceite (`termoEnviadoEm` é o timestamp). Ponto importante: essa ação está em **"Meu perfil"**, não na tela geral de Equipamentos nem só na Ficha do admin — ver o bloco "Equipamentos, dependentes etc. moraram para `ColaboradorAbas`" logo abaixo.
+
+Pendências conhecidas, não implementadas: a página `/patrimonio` não mostra o **histórico** de alocações encerradas de um equipamento (só a alocação ativa, que é o que a API inclui por padrão). Testes: `equipamentos.service.spec.ts` e `alocacoes.service.spec.ts` cobrem `redigirColaborador`, `anexarTermoLote` e agora a checagem de dono/admin em `anexarTermo`; `PatrimonioPage.test.tsx` cobre a seleção múltipla e o fallback "—" pra colaborador oculto no frontend.
+
+**Equipamentos, dependentes, histórico etc. moraram para `ColaboradorAbas` (18/09/2026).** As abas que antes viviam só dentro de `FichaColaboradorPage.tsx` (dependentes, histórico profissional, checklist, documentos, saúde) foram extraídas para `frontend/src/modules/colaboradores-rh/components/ColaboradorAbas.tsx`, um componente único reaproveitado por `FichaColaboradorPage.tsx` (admin vendo qualquer colaborador, `/configuracoes/colaboradores/:id`) e por `MeuPerfilPage.tsx` (o próprio colaborador, `/perfil`) — antes `MeuPerfilPage` só linkava pra fora, agora renderiza tudo inline. Ganhou uma aba nova, **Equipamentos** (`SecaoEquipamentos`, consulta `GET /patrimonio/alocacoes?colaboradorId=`): lista os vínculos do colaborador com status e, quando ainda não tem termo, o botão "Aceitar termo" (abre `patrimonio/components/TermoAceiteDialog.tsx` — checkbox de confirmação + `<input type="file" accept=".pdf">` + `useAnexarTermo`) — **só aparece pra quem é dono do próprio vínculo** (`user.id === userId`), nunca pra quem só está visitando a ficha de outro colaborador; quem só visita vê status + "Termo" pra baixar o que já foi enviado. A tela geral de Equipamentos (`/patrimonio`, inventário) não ganhou nada disso — continua só cadastro/vínculo administrativo, como já era.
 
 ### Logs da aplicação
 
@@ -262,18 +292,22 @@ O envio Telegram é disparado sem aguardar a entrega dentro de `NotificacoesServ
 | `/login` | Login por senha e, quando habilitado, Google. |
 | `/formulario-publico/:token` | Sem login; formulário público de um tipo de solicitação (token do tipo, não da solicitação) — como um Google Forms, qualquer pessoa envia uma resposta nova. |
 | `/` | Dashboard condicionado à rotina; conteúdo varia por perfil. |
-| `/perfil` | Perfil e conexões pessoais, para usuário autenticado. |
+| `/perfil` | Meu perfil: dados cadastrais, conexões pessoais (Google/Telegram/Agenda) e as mesmas abas de dados do colaborador (dependentes, histórico, checklist, documentos, **equipamentos**, saúde) que a Ficha mostra para o admin — para usuário autenticado, sempre sobre si mesmo. |
 | `/plantoes` | Gestão de plantões; `ADMIN` e rotina correspondente. |
 | `/agendamentos` | Consulta de reservas; gestão para `ADMIN`; solicitação pessoal quando habilitada. |
 | `/solicitacoes` | Gestão administrativa ou solicitações pessoais. |
-| `/convites-agenda` | Convites de agenda em massa; `ADMIN` apenas. |
+| `/agenda` | Convites de agenda em massa; `ADMIN` apenas. (Renomeada de `/convites-agenda` em 18/09/2026; a rota antiga redireciona.) |
+| `/central-documentos` | Central de Documentos (Departamento → Colaborador → Categoria → arquivo, com upload/exclusão inline); `ADMIN` apenas. |
+| `/pesquisas` | Gestão de pesquisas anônimas/feedback 1:1 (`ADMIN`+) ou pesquisas pendentes para responder (demais). |
+| `/pesquisas/:id` | Resultado agregado de uma pesquisa (% respondido, gráfico por pergunta); `ADMIN` apenas. |
 | `/logs` | Logs técnicos das requisições HTTP; `MASTER` apenas. |
 | `/master/usuarios` | Gestão de usuários master; `MASTER` apenas. |
 | `/configuracoes/colaboradores` | Cadastro administrativo de colaboradores. |
-| `/configuracoes/colaboradores/:id` | Ficha de RH. |
+| `/configuracoes/colaboradores/:id` | Ficha de RH (admin vendo qualquer colaborador; mesmo componente de abas de `/perfil`, `ColaboradorAbas`). |
 | `/configuracoes/departamentos` | Departamentos e subáreas. |
 | `/configuracoes/permissoes` | Rotinas por departamento e exceções individuais. |
 | `/configuracoes/tipos-solicitacao` | Catálogo de solicitações. |
+| `/configuracoes/categorias-documento` | Categorias de documento (Contrato, Holerite, Plano de saúde...). |
 | `/configuracoes/salas` | Cadastro de salas. |
 | `/configuracoes/plantoes` | Catálogo de tipos de plantão (nome, horário e recorrência num só cadastro). |
 | `/configuracoes/telegram` | Bot, avisos e grupos/tópicos. |

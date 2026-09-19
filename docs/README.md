@@ -27,6 +27,13 @@ anteriores foi removida após a consolidação das pendências.
   `GOOGLE_CALENDAR_EMAIL_INVITES_ENABLED=false` até a Fase 0 (prova manual
   numa conta real do Workspace) ser executada — ver
   [reference/agenda-google.md](reference/agenda-google.md#convites-de-agenda-por-e-mail).
+- [rh-completo-11-frentes.md](features/planning/rh-completo-11-frentes.md) —
+  plano das 11 frentes de RH pedidas (tempo de experiência, aniversariantes
+  por mês, avisos configuráveis, checklist de admissão + pré-cadastro
+  público, Central de Documentos, foto de perfil, contracheque, dados de
+  saúde/cultural, turnover + demissão, pesquisas NPS/NR-1, feedback 1:1).
+  Itens 5 (Central de Documentos), 6 (foto de perfil) e 7 (contracheque)
+  implementados em 17/09/2026; as demais 8 frentes seguem como plano.
 
 ## features-planning/ — planos solicitados neste caminho
 

@@ -2,7 +2,7 @@
 
 Atualizado em **17/09/2026**. Pendências consolidadas dos planos anteriores, cuja pasta foi removida após esta transferência. O estado implementado está descrito em [CONTEXT.md](CONTEXT.md).
 
-O agendamento de salas e os seis itens transversais (tempo real, Telegram, aprovação direta, substituição de alertas nativos, dashboard e anexo no cadastro) já têm implementação no código. O frontend de **patrimônio e equipamentos** (seções 1–3) foi implementado em 17/09/2026 — ver detalhe em [SESSIONS/17-09-2026.md](SESSIONS/17-09-2026.md#frontend-de-patrimônio-e-equipamentos). Restam a seção 4 (ficha do colaborador) e partes da seção 5 (validação em ambiente real). A situação das migrations e da publicação precisa ser verificada no ambiente de destino; os relatos antigos não confirmam o estado atual.
+O agendamento de salas e os seis itens transversais (tempo real, Telegram, aprovação direta, substituição de alertas nativos, dashboard e anexo no cadastro) já têm implementação no código. O frontend de **patrimônio e equipamentos** (seções 1–3) foi implementado em 17/09/2026 — ver detalhe em [SESSIONS/17-09-2026.md](SESSIONS/17-09-2026.md#frontend-de-patrimônio-e-equipamentos); o aceite digital (seção 2) e o bloco de equipamentos na ficha/perfil (seção 4) foram implementados em 18/09/2026 (ver item 19). Resta só parte da seção 5 (validação em ambiente real). A situação das migrations e da publicação precisa ser verificada no ambiente de destino; os relatos antigos não confirmam o estado atual.
 
 ## 1. Integrar o frontend à API de patrimônio — concluído em 17/09/2026
 
@@ -23,7 +23,7 @@ Referências: [módulo de agendamento](../../frontend/src/modules/agendamento), 
 - [x] Tratar carregamento, lista vazia e falhas com os componentes do portal; usar `Dialog` nas confirmações, sem `alert()` ou `confirm()` nativos.
 - [x] Corrigido em 17/09/2026: qualquer colaborador com a rotina via o nome de quem estava com o equipamento de outra pessoa na coluna "Colaborador" do inventário. `redigirColaborador` (`backend/src/patrimonio/equipamentos.service.ts`, reaproveitada em `alocacoes.service.ts`) some essa identidade em `GET /patrimonio/equipamentos`, `/equipamentos/:id`, `/alocacoes` e `/alocacoes/:id` quando quem consulta não é `ADMIN` nem o dono da alocação.
 - [x] Vincular vários equipamentos ao mesmo colaborador numa única entrega, com um só termo assinado cobrindo o lote — `VinculoLoteDialog.tsx` (checkbox por linha disponível + "Vincular selecionados" em `PatrimonioPage.tsx`) cria uma alocação por item e anexa o termo a todas via `POST /patrimonio/alocacoes/termo-lote`. Concluído em 17/09/2026.
-- [ ] Aceite digital do colaborador (confirmar recebimento pelo próprio portal) — combinado como evolução futura, ainda sem desenho; por ora toda entrega é tratada como aceita assim que registrada.
+- [x] Aceite digital do colaborador — concluído em 18/09/2026. Assinatura em si é externa (Clicksign); o colaborador confirma na plataforma importando o PDF assinado e marcando um checkbox de confirmação, em **"Meu perfil"** (não na tela geral de Equipamentos). `POST /patrimonio/alocacoes/:id/termo` deixou de ser exclusivo de `ADMIN` — o dono da alocação também pode chamar (`AlocacoesService.anexarTermo` recebe o usuário autenticado e barra terceiros). Ver detalhe em [SESSIONS/18-09-2026.md](SESSIONS/18-09-2026.md).
 
 ## 3. Adicionar catálogo, rotas e navegação — concluído em 17/09/2026
 
@@ -36,7 +36,7 @@ Referências: [roteador](../../frontend/src/router/AppRoutes.tsx), [navegação]
 
 ## 4. Integrar à gestão de colaboradores — pendente
 
-- [ ] Adicionar à `FichaColaboradorPage.tsx` um bloco com equipamentos/alocações da pessoa, situação atual e histórico.
+- [x] Adicionar à ficha/perfil do colaborador um bloco com equipamentos/alocações da pessoa e situação atual — concluído em 18/09/2026, como aba **Equipamentos** de `ColaboradorAbas.tsx` (componente compartilhado por `FichaColaboradorPage.tsx` e `MeuPerfilPage.tsx`). Não mostra histórico de alocações encerradas do equipamento em si (mesma pendência da seção 2), só a lista de vínculos do colaborador (todos os status, já que a consulta é por `colaboradorId`, não filtrada a "ativas").
 - [ ] Ao alterar o status do colaborador para `DESLIGADO`, informar na interface que os equipamentos vinculados retornam ao estoque.
 - [x] No fluxo de entrega, impedir a seleção de colaboradores desligados e apresentar as rejeições da API de forma compreensível. (`VinculoDialog.tsx` já filtra colaboradores `DESLIGADO`/inativos do seletor e exibe o erro da API se a rejeição ocorrer mesmo assim.)
 - [ ] Após desligamento ou movimentação, atualizar os dados exibidos de colaborador, inventário e alocações que forem afetados — falta o bloco da ficha do colaborador para isso valer.
@@ -392,3 +392,153 @@ que ela ignora — não um bypass genérico global.
 - [x] Testes: `roles.util.spec.ts` (novo), `roles.guard.spec.ts` (+3 casos de hierarquia), `users.service.spec.ts` (+7 casos de master, chamador roteado em todas as chamadas existentes), `ProtectedRoute.test.tsx` (+3 casos), `AgendamentosPage.test.tsx` (+1 caso, com a pegadinha de fake timers travando `userEvent` documentada no próprio teste). Suíte completa: backend 39 arquivos (só a falha pré-existente de `prisma.service.spec.ts`, sem Postgres); frontend 34 arquivos (só a falha pré-existente de `App.test.tsx`, confirmada via `git stash` que já existia antes desta tarefa). Ambos os builds (`tsc -b`/`nest build`) limpos.
 - [ ] **Pendência operacional: rodar `prisma migrate deploy`** das duas migrations novas no ambiente com banco real antes do próximo deploy — sem isso, `admin@suri.ai` não vira master em produção. Confirmar depois que o login com `admin@suri.ai`/`@@@@@@1234567890` funciona e que a conta some da listagem de colaboradores para um `ADMIN` comum.
 - [ ] Trocar a senha padrão do master (`@@@@@@1234567890`) por uma definitiva assim que possível — é um valor conhecido publicamente agora que está registrado aqui e na migration.
+
+## 17. Plano de RH completo (11 frentes) — planejamento concluído; itens 5, 6 e 7 implementados em 17/09/2026
+
+Pedido: mapear tempo de experiência profissional, aniversariantes por mês no
+dashboard, avisos de aniversário configuráveis ao gestor/RH, checklist de
+admissão com pré-cadastro público, Central de Documentos por departamento/
+colaborador/categoria com foto, foto de perfil configurável, contracheque
+por competência, dados de saúde/cultural, turnover + processo demissional,
+pesquisas anônimas NPS/NR-1 e feedback de 1:1 — 11 frentes relacionadas.
+Plano completo (schema, endpoints, telas, fases sugeridas, status por
+frente) em
+[docs/features/planning/rh-completo-11-frentes.md](../docs/features/planning/rh-completo-11-frentes.md).
+Decisões já confirmadas com o usuário, não reabrir: papel
+**Gestor** vira role de verdade com acesso à própria equipe; pré-cadastro
+público (item 4) cria o `User` automaticamente em status "pendente
+autorização"; pesquisas anônimas sem piso mínimo de respostas; `recharts`
+aprovado como dependência nova do frontend para os relatórios.
+
+- [x] Item 6 — Foto de perfil configurável: `User.avatarCaminho`/`avatarMimeType`, módulo `avatar/` (`POST` `ADMIN`, `GET` deliberadamente público — ver justificativa na sessão), upload no cadastro e na ficha do colaborador.
+- [x] Item 5 — Central de Documentos: `CategoriaDocumento` (tabela configurável, substitui o enum `TipoDocumentoColaborador`), módulo `categorias-documento/` (CRUD `ADMIN`, `/configuracoes/categorias-documento`), `GET /documentos/resumo`, `CentralDocumentosPage.tsx` (`/central-documentos`, navegação Departamento → Colaborador com foto → Categoria → arquivo).
+- [x] Item 7 — Contracheque por competência: `DocumentoColaborador.competencia`, sub-aba "Contracheque" na ficha do colaborador (agrupamento client-side por mês/ano, filtrando pela categoria "Holerite" por nome — acoplamento deliberado, ver pendência abaixo).
+- [x] Migration `20260917233000_documentos_categoria_e_avatar` **aplicada de verdade** (não escrita à mão sem teste): o usuário subiu um Postgres local via Docker/WSL nesta sessão, permitindo `prisma migrate deploy` real, incluindo backfill conferido dos documentos já existentes. Essa mesma rodada também aplicou as 6 migrations que já estavam pendentes dos itens 11, 13, 14, 15 e 16 — mas só no Postgres **local**, não em produção.
+- [x] Testes: suíte completa passando nos dois projetos após ajustar os mocks/asserções de `ColaboradoresAdminPage.test.tsx` para o novo contrato (`categoriaId` no lugar de `tipo`). `tsc -b`/`nest build`/`vite build` limpos.
+- [ ] **Pendência operacional:** rodar `prisma migrate deploy` no ambiente de produção real — nunca foi feito nesta sessão, só no Postgres local de desenvolvimento. Isso também aplicaria, de uma vez, todas as migrations já acumuladas dos itens 11/13/14/15/16.
+- [ ] Renomear a categoria "Holerite" quebra o campo de competência no formulário de upload e a sub-aba Contracheque (achados por nome exato) — sem guarda de proteção; é um acoplamento deliberado, documentado, não implementado como flag no schema.
+### Continuação em 18/09/2026 — papel Gestor + itens 1, 2, 3, 8, 9 concluídos; item 4 parcial (backend pronto, faltam 3 telas)
+
+Pedido: implementar as 8 frentes restantes em ordem, conforme as pendências.
+Sessão encerrada por limite de uso (80% gasto, reset só às 2:40) — detalhe
+completo em
+[SESSIONS/18-09-2026.md](SESSIONS/18-09-2026.md#continuação-do-plano-de-rh-completo).
+Migrations aplicadas no Postgres **local** (não produção), suíte completa e
+builds passando: `20260918015936_add_gestor_role`,
+`20260918020104_rh_fase1_fundacao`, `20260918022338_config_aviso_aniversario`,
+`20260918025045_status_colaborador_pendente`,
+`20260918025108_tipo_solicitacao_pre_admissao`,
+`20260918030000_checklist_item_generico` (rename de tabela escrito à mão —
+`prisma migrate dev` recusa rename não-interativo).
+
+- [x] **Papel Gestor** (transversal): `Role.GESTOR`,
+      `garantirAcessoColaborador` (`backend/src/common/acesso-colaborador.util.ts`,
+      self-or-admin-or-gestor-do-liderado-direto), `UsersService.findMinhaEquipe`,
+      módulo `dados-sensiveis/` (bancário/salário, self-or-admin — gestor não
+      vê). Frontend: `frontend/src/modules/equipe/`, item de menu
+      `gestorOnly`, `DashboardService.getResumoEquipe` (aniversariantes +
+      checklist pendente da equipe do gestor).
+- [x] **Item 1 — Tempo de experiência**: `colaboradores-rh/utils/tempoExperiencia.ts` (+ teste), na ficha do colaborador.
+- [x] **Item 2 — Aniversariantes por mês**: `DashboardService.getResumoAdmin.aniversariantesPorMes` (12 posições, ano inteiro), gráfico `recharts` (BarChart) em `AdminDashboardPage.tsx`.
+- [x] **Item 3 — Avisos configuráveis**: model `ConfigAvisoAniversario` (singleton, `diasAntecedencia` — padrão `[15,10,5,3,1]`), tela em `frontend/src/modules/avisos-aniversario/`; `AniversariosService` usa a config e une RH configurado + gestor direto como destinatários.
+- [x] **Item 8 — Dados de saúde/cultural**: `User.tipoSanguineo`/`alergias`/`condicoesSaude`/`beneficioCultural`, expostos só via `dados-sensiveis/` e na sub-aba `SecaoSaude` da ficha do colaborador.
+- [x] **Item 9 — Turnover + demissão**: `User.dataDesligamento`/`motivoDesligamento`; `ChecklistAdmissaoItem` generalizado para `ChecklistItem` (+ `TipoChecklist` ADMISSAO/DESLIGAMENTO, `categoria`, `observacaoInterna` nunca exposta a quem não é ADMIN/MASTER/gestor); `UsersService.update` dispara checklist de desligamento + devolução de patrimônio ao virar `DESLIGADO`; módulo novo `backend/src/relatorios/` (`getTurnover`) + `frontend/src/modules/relatorios/`; `HistoricoProfissional` ganhou `empresa`/`externo`.
+- [x] Exclusão de `PENDENTE` (pré-cadastro) das consultas de "ativo": `dashboard.service.ts`, `aniversarios.service.ts`, `documentos.service.ts`, `users.service.ts` e agora também `relatorios.service.ts` (`getTurnover` ganhou `statusColaborador: { not: 'PENDENTE' }`, com o teste de `where` atualizado).
+- [x] **Item 4 — Checklist de admissão + pré-cadastro público: concluído.** Backend completo e testado (`solicitacoes.service.ts`: `criarSolicitacaoPreAdmissao`/`extrairIdentidade`/`copiarAnexoParaDocumento`; `tipos-solicitacao.service.ts`: `validarPreAdmissao`; `TipoSolicitacao.ehPreAdmissao`; `StatusColaborador.PENDENTE`; `campo-formulario.dto.ts` com `mapeamento?: 'NOME' | 'EMAIL'`). As 3 telas que faltavam foram implementadas:
+  - [x] `CamposFormularioEditor.tsx`: seletor "Usar como" (Nome/E-mail do colaborador → campo `mapeamento`) por campo, só renderizado quando `ehPreAdmissao` (prop nova) é `true`.
+  - [x] `TiposSolicitacaoAdminPage.tsx`: checkbox "É um pré-cadastro" dentro do bloco de link público (só aparece com `permiteLinkPublico` ligado), estado resetado em `abrirNovo`/`abrirEdicao`, enviado no payload como `linkPublicoDisponivel && permiteLinkPublico && ehPreAdmissao` (mesmo padrão já usado para `permiteLinkPublico`).
+  - [x] `ColaboradoresAdminPage.tsx`: nova opção "Pendentes de autorização" no filtro de status já existente (`filtroStatus`), que agora também exclui `PENDENTE` do filtro "Ativos" (antes ficavam misturados). `StatusColaborador` (tipo e `STATUS_COLABORADOR`) ganhou o valor `PENDENTE` no frontend — faltava, só existia no backend. De caminho, o seletor de "Gestor" no cadastro passou a excluir colaboradores `PENDENTE` (mesma lógica das outras listas de "ativo" já corrigidas).
+  - Testes: fixtures de `TiposSolicitacaoAdminPage.test.tsx` atualizadas com `ehPreAdmissao: false`. Suíte completa: backend 43 arquivos/537 testes; frontend 35 arquivos/196 testes (só a falha pré-existente e alheia de `App.test.tsx`). `tsc -b` dos dois projetos e `nest build`/`vite build` limpos.
+- [x] **Itens 10 e 11 — pesquisas anônimas NPS/NR-1 e feedback 1:1: concluído em 18/09/2026.** Módulo novo `backend/src/pesquisas/`: schema `Pesquisa`/`PesquisaConvite`/`PesquisaResposta` (migration `20260918124133_pesquisas_nps_feedback`, aplicada de verdade no Postgres local — `PesquisaResposta` deliberadamente sem `userId` e sem FK de volta a `PesquisaConvite`, pra garantir anonimato mesmo contra query interna), `POST/GET /pesquisas`, `GET /pesquisas/pendentes`, `GET /pesquisas/:id/resultado` (agregação por campo, sem piso mínimo de respostas), `POST /pesquisas/:id/responder`, `PATCH /pesquisas/:id/encerrar`. `FEEDBACK_1_1` reaproveita o mesmo motor: destinatários por `{ gestorId }` expandem para os liderados diretos na criação, sem nenhuma peça nova. `validarRespostasContraCampos` foi extraído de `solicitacoes.service.ts` para `backend/src/common/campo-formulario.util.ts` (reaproveitado, não duplicado). Frontend `frontend/src/modules/pesquisas/` (rota `/pesquisas` — `PesquisasAdminPage.tsx`/`PesquisasPage.tsx` conforme o papel, mesmo padrão de `/solicitacoes` — e `/pesquisas/:id` com gráfico `recharts`), reaproveitando `CamposFormularioEditor` (nova prop `tiposPermitidos`, sem `ARQUIVO` aqui) e `CamposFormularioForm`. Testes: 9 casos novos em `pesquisas.service.spec.ts` e 9 no frontend (`PesquisaDialog`/`PesquisasPage`/`PesquisasAdminPage`); suíte completa e ambos os builds confirmados depois da mudança (ver detalhe na sessão de 18/09/2026).
+- [x] **Não é mais uma pendência manual**: o usuário confirmou que o entrypoint de produção já roda `prisma migrate deploy` sozinho no deploy (ver [CONTEXT.md](../CONTEXT.md#7-execução-e-entrega)) — as 6 migrations deste item e as já acumuladas do item 16 aplicam automaticamente no próximo deploy, sem passo manual extra. Não repetir esse aviso como pendência em itens futuros.
+
+## 18. Gerenciamento completo de documentos na Central (estilo Google Drive) — implementado em 18/09/2026
+
+Pedido registrado em `PLANO/pontos.md` em 18/09/2026: a Central de
+Documentos (`/central-documentos`, item 5 do plano de RH) precisa virar um
+gerenciamento completo — upload/importação de arquivos e exclusão pelo
+próprio admin ali, não só navegação/visualização como hoje.
+
+Implementado com o escopo mais direto (reaproveitar as rotas já existentes,
+sem inventar pastas livres/mover-entre-categorias — "como um Google Drive"
+foi interpretado como "upload e exclusão direto na tela", igual ao pedido
+escrito, sem presumir escopo maior): `CentralDocumentosPage.tsx` ganhou
+`UploadDocumentoForm` (nome opcional, categoria, arquivo — mesmos campos e
+mesma rota `POST /colaboradores/:userId/documentos` já usados na ficha do
+colaborador) dentro de `SecaoColaborador`, disponível tanto na lista de
+categorias quanto dentro de uma categoria já aberta (nesse caso a categoria
+vem pré-selecionada). Cada arquivo listado ganhou um botão de exclusão
+(`DELETE /colaboradores/:userId/documentos/:id`, mesmo `useDeleteDocumento`
+da ficha). Nenhum endpoint novo no backend — só reaproveitando hooks
+(`useUploadDocumento`/`useDeleteDocumento`/`useCategoriasDocumento`) já
+existentes em `colaboradores-rh`/`categorias-documento`.
+
+Teste novo: `CentralDocumentosPage.test.tsx` (2 casos — exclusão e upload).
+
+## 19. Aceite de equipamento em "Meu perfil" + exclusão MASTER em Pesquisas/Convites de agenda + rota `/agenda` — implementado em 18/09/2026
+
+Pedido em 3 partes, na mesma sessão: (1) perguntou como o colaborador aceita
+o vínculo de equipamento hoje — resposta: não existia aceite nenhum no
+portal, só o admin lançando o termo; (2) pediu o aceite de verdade — o
+colaborador assina no Clicksign e depois importa o PDF assinado na
+plataforma, com um espaço próprio pra isso — e corrigiu o local: não deveria
+aparecer na "Ficha" (tela do admin), e sim em "Meu perfil" (tela do
+colaborador), seguindo a mesma separação já existente entre as duas; (3) num
+desvio à parte, pediu que usuários `MASTER` também consigam excluir os
+registros de Pesquisas e Convites de agenda (prints mostrando que hoje só
+existe "Encerrar"/"Cancelar", sem exclusão); depois, ainda na mesma sessão,
+pediu pra renomear a rota `/convites-agenda` para `/agenda`.
+
+**Aceite de equipamento.** Detalhe completo em
+[CONTEXT.md](CONTEXT.md#patrimônio-e-equipamentos) (seção Patrimônio) — aqui
+só o resumo: `POST /patrimonio/alocacoes/:id/termo` passou a aceitar o
+próprio dono da alocação, não só `ADMIN` (`ForbiddenException` pra qualquer
+outro terceiro). As abas de dados do colaborador que só existiam dentro de
+`FichaColaboradorPage.tsx` (dependentes, histórico, checklist, documentos,
+saúde) foram extraídas para `frontend/src/modules/colaboradores-rh/components/ColaboradorAbas.tsx`,
+compartilhado por essa página (admin vendo qualquer um) e por
+`MeuPerfilPage.tsx` (o próprio colaborador) — ganhou a aba nova
+**Equipamentos**, com o botão "Aceitar termo" (checkbox de confirmação +
+upload de PDF, `TermoAceiteDialog.tsx`) visível só pra quem é dono do
+vínculo. Nenhuma migration: o upload do termo já vira `status: ASSINADO`,
+que passou a valer como o próprio registro do aceite.
+
+**Exclusão MASTER em Pesquisas e Convites de agenda.** `DELETE /pesquisas/:id`
+e `DELETE /convites-agenda/:id`, ambos `@Roles('MASTER')` — mais fortes que
+"Encerrar"/"Cancelar" (`ADMIN`+, já existentes, e que continuam
+disponíveis). Exclusão definitiva: convites+respostas (pesquisa) e
+destinatários (convite de agenda) somem junto por cascade do Prisma; o
+convite de agenda não cancela o evento no Google sozinho — se ainda estiver
+ativo lá, quem excluir precisa cancelar antes, avisado no próprio texto do
+diálogo de confirmação. Botão "Excluir" nas duas telas (`PesquisasAdminPage.tsx`,
+`ConvitesAgendaPage.tsx`), visível só pra `satisfazRole(user?.role, 'MASTER')`.
+
+**Rota `/convites-agenda` → `/agenda`.** Só a URL do navegador mudou — API
+backend, módulo/pasta do frontend (`modules/convites-agenda/`) e nome dos
+arquivos continuam iguais. `AppRoutes.tsx` registra `/agenda` como a rota
+real e `/convites-agenda` como um `<Navigate>` pra ela (mesmo padrão já usado
+em outras rotas renomeadas, como `/logs`); `navigation.ts` aponta pro
+caminho novo. O texto que o backend grava na descrição do evento do Google
+Calendar (link de volta pro portal) também foi atualizado pra `/agenda` nas
+duas variantes (evento central e cópias legadas) — eventos já criados antes
+da mudança mantêm o texto antigo (Google Calendar não reescreve descrição
+já enviada), mas o link antigo continua funcionando por causa do redirect.
+
+**Testes.** Backend: `alocacoes.service.spec.ts` ganhou 2 casos (dono
+consegue anexar, terceiro é barrado); `pesquisas.service.spec.ts` e
+`convites-agenda.service.spec.ts` ganharam `describe('remover')` cobrindo
+sucesso e registro inexistente. Frontend: `PesquisasAdminPage.test.tsx`
+ganhou o caso MASTER-only; `ConvitesAgendaPage.test.tsx` é novo (não
+existia teste pra essa página) com o mesmo caso. Suíte completa depois de
+tudo: backend 4 arquivos/57 testes direcionados (pesquisas, convites-agenda,
+patrimônio) + `jest` geral sem novas falhas; frontend `tsc --noEmit` limpo e
+`vitest run` direcionado nos módulos tocados (patrimônio, colaboradores-rh,
+usuários, pesquisas, convites-agenda) todos passando, exceto a mesma falha
+pré-existente e alheia de `ColaboradoresAdminPage.test.tsx` (arquivo já
+estava modificado por outra sessão antes desta, confirmado por `git status`
+no início — não foi tocado aqui).
+
+`AI/CONTEXT.md` (seção 6, "Convites de agenda em massa", "Pesquisas
+anônimas", "Patrimônio e equipamentos") e este item foram atualizados; ver
+também [SESSIONS/18-09-2026.md](SESSIONS/18-09-2026.md) para o relato
+completo, incluindo as perguntas/decisões intermediárias.
