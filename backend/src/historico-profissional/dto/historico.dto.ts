@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsDateString, IsOptional, IsString, ValidateIf } from 'class-validator';
 
 export class CreateHistoricoDto {
   @IsString()
@@ -50,9 +50,11 @@ export class UpdateHistoricoDto {
   @IsDateString()
   dataInicio?: string;
 
+  /** null limpa a data final (marca o cargo como atual); string define a data. */
   @IsOptional()
+  @ValidateIf((o: UpdateHistoricoDto) => o.dataFim !== null)
   @IsDateString()
-  dataFim?: string;
+  dataFim?: string | null;
 
   @IsOptional()
   @IsString()

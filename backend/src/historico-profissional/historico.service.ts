@@ -48,7 +48,7 @@ export class HistoricoService {
         empresa: dto.empresa,
         externo: dto.externo,
         dataInicio: dto.dataInicio ? new Date(dto.dataInicio) : undefined,
-        dataFim: dto.dataFim ? new Date(dto.dataFim) : undefined,
+        dataFim: dto.dataFim === null ? null : dto.dataFim ? new Date(dto.dataFim) : undefined,
         observacao: dto.observacao,
       },
     });

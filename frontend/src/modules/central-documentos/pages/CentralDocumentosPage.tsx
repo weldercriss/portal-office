@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { ArrowLeft, FileText, Folder, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, FileText, Folder, Search, Trash2, Upload } from 'lucide-react';
 import { PageShell } from '../../../components/system/PageShell';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
@@ -62,6 +62,7 @@ export default function CentralDocumentosPage() {
         />
       ) : departamento ? (
         <SecaoColaboradores
+          key={departamento}
           colaboradores={colaboradoresDoDepartamento}
           onVoltar={() => setDepartamento(null)}
           onSelecionar={setColaboradorId}
@@ -117,13 +118,30 @@ function SecaoColaboradores({
   onVoltar: () => void;
   onSelecionar: (id: string) => void;
 }) {
+  const [busca, setBusca] = useState('');
+  const colaboradoresFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return colaboradores;
+    return colaboradores.filter((c) => c.nome.toLowerCase().includes(termo));
+  }, [colaboradores, busca]);
+
   return (
     <div className="flex flex-col gap-4">
       <Button variant="ghost" size="sm" onClick={onVoltar} className="w-fit gap-2">
         <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Departamentos
       </Button>
+      <div className="relative max-w-sm">
+        <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+        <Input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar colaborador..."
+          className="pl-9"
+          aria-label="Buscar colaborador"
+        />
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {colaboradores.map((colaborador) => (
+        {colaboradoresFiltrados.map((colaborador) => (
           <button
             key={colaborador.id}
             type="button"
@@ -143,8 +161,10 @@ function SecaoColaboradores({
             </span>
           </button>
         ))}
-        {colaboradores.length === 0 && (
-          <p className="col-span-full text-sm text-[var(--color-text-secondary)]">Nenhum colaborador neste departamento.</p>
+        {colaboradoresFiltrados.length === 0 && (
+          <p className="col-span-full text-sm text-[var(--color-text-secondary)]">
+            {busca ? 'Nenhum colaborador encontrado.' : 'Nenhum colaborador neste departamento.'}
+          </p>
         )}
       </div>
     </div>

@@ -5,6 +5,7 @@ import type {
   CreateHistoricoInput,
   TipoChecklist,
   UpdateDadosSensiveisInput,
+  UpdateHistoricoInput,
 } from '../types/colaborador-rh.types';
 
 // Dependentes
@@ -34,6 +35,13 @@ export function useCreateHistorico(userId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateHistoricoInput) => api.createHistorico(userId, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['historico', userId] }),
+  });
+}
+export function useUpdateHistorico(userId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateHistoricoInput }) => api.updateHistorico(userId, id, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['historico', userId] }),
   });
 }

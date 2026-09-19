@@ -36,6 +36,17 @@ export interface CreateHistoricoInput {
   observacao?: string;
 }
 
+export interface UpdateHistoricoInput {
+  cargo?: string;
+  departamento?: string;
+  empresa?: string;
+  externo?: boolean;
+  dataInicio?: string;
+  /** null limpa a data final (marca o cargo como atual). */
+  dataFim?: string | null;
+  observacao?: string;
+}
+
 export interface DadosSensiveis {
   tipoSanguineo: string | null;
   alergias: string | null;

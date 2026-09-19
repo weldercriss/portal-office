@@ -74,7 +74,7 @@ export class DocumentosResumoController {
   constructor(private readonly documentosService: DocumentosService) {}
 
   @Get('resumo')
-  resumo() {
-    return this.documentosService.findResumo();
+  resumo(@Req() req: Request) {
+    return this.documentosService.findResumo(req.user as UsuarioAutenticado);
   }
 }

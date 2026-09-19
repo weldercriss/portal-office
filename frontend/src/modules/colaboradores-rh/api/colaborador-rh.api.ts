@@ -9,6 +9,7 @@ import type {
   HistoricoProfissional,
   TipoChecklist,
   UpdateDadosSensiveisInput,
+  UpdateHistoricoInput,
 } from '../types/colaborador-rh.types';
 
 // Dependentes
@@ -23,6 +24,8 @@ export const getHistorico = (userId: string) =>
   httpClient<HistoricoProfissional[]>(`/colaboradores/${userId}/historico`);
 export const createHistorico = (userId: string, input: CreateHistoricoInput) =>
   httpClient<HistoricoProfissional>(`/colaboradores/${userId}/historico`, { method: 'POST', body: input });
+export const updateHistorico = (userId: string, id: string, input: UpdateHistoricoInput) =>
+  httpClient<HistoricoProfissional>(`/colaboradores/${userId}/historico/${id}`, { method: 'PATCH', body: input });
 export const deleteHistorico = (userId: string, id: string) =>
   httpClient<{ success: boolean }>(`/colaboradores/${userId}/historico/${id}`, { method: 'DELETE' });
 

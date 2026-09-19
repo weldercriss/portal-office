@@ -47,10 +47,15 @@ export class DocumentosService {
   }
 
   /** Árvore da Central de Documentos: um colaborador por linha, com a contagem de documentos. */
-  findResumo() {
+  findResumo(chamador: UsuarioAutenticado) {
     return this.prisma.user.findMany({
-      // Pré-cadastro (PENDENTE) não é headcount navegável ainda.
-      where: { ativo: true, statusColaborador: { not: 'PENDENTE' } },
+      where: {
+        ativo: true,
+        // Pré-cadastro (PENDENTE) não é headcount navegável ainda.
+        statusColaborador: { not: 'PENDENTE' },
+        // Master é administração de plataforma, não colaborador — some da lista para quem não é master.
+        ...(chamador.role === 'MASTER' ? {} : { role: { not: 'MASTER' } }),
+      },
       select: {
         id: true,
         nome: true,

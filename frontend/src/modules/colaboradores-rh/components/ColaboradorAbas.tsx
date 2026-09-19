@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Download, FileCheck2, Trash2 } from 'lucide-react';
+import { Download, FileCheck2, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
@@ -14,6 +14,7 @@ import { useAlocacoes } from '../../patrimonio/hooks/usePatrimonio';
 import { ALOCACAO_STATUS_LABEL, type AlocacaoEquipamento, type AlocacaoStatus } from '../../patrimonio/types/patrimonio.types';
 import { visualizarTermo } from '../../patrimonio/utils/termo';
 import type { Usuario } from '../../usuarios/types/usuario.types';
+import type { HistoricoProfissional } from '../types/colaborador-rh.types';
 import { DocumentoPreviewDialog } from './DocumentoPreviewDialog';
 import {
   useChecklist,
@@ -29,6 +30,7 @@ import {
   useHistorico,
   useUpdateChecklistItem,
   useUpdateDadosSensiveis,
+  useUpdateHistorico,
   useUploadDocumento,
 } from '../hooks/useColaboradorRh';
 import { useDocumentoPreview } from '../hooks/useDocumentoPreview';
@@ -183,12 +185,16 @@ function SecaoHistorico({
 }) {
   const query = useHistorico(userId);
   const createMutation = useCreateHistorico(userId);
+  const updateMutation = useUpdateHistorico(userId);
   const deleteMutation = useDeleteHistorico(userId);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [cargo, setCargo] = useState('');
   const [externo, setExterno] = useState(false);
   const [departamento, setDepartamento] = useState('');
   const [empresa, setEmpresa] = useState('');
   const [dataInicio, setDataInicio] = useState('');
+  const [cargoAtual, setCargoAtual] = useState(true);
+  const [dataFim, setDataFim] = useState('');
   const [observacao, setObservacao] = useState('');
 
   const historico = query.data ?? [];
@@ -197,21 +203,49 @@ function SecaoHistorico({
     historico.filter((item) => item.externo).map((item) => ({ dataInicio: item.dataInicio, dataFim: item.dataFim })),
   );
 
+  function limparForm() {
+    setEditandoId(null);
+    setCargo('');
+    setExterno(false);
+    setDepartamento('');
+    setEmpresa('');
+    setDataInicio('');
+    setCargoAtual(true);
+    setDataFim('');
+    setObservacao('');
+  }
+
+  function iniciarEdicao(item: HistoricoProfissional) {
+    setEditandoId(item.id);
+    setCargo(item.cargo);
+    setExterno(item.externo);
+    setDepartamento(item.departamento ?? '');
+    setEmpresa(item.empresa ?? '');
+    setDataInicio(item.dataInicio.slice(0, 10));
+    setCargoAtual(!item.dataFim);
+    setDataFim(item.dataFim ? item.dataFim.slice(0, 10) : '');
+    setObservacao(item.observacao ?? '');
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    await createMutation.mutateAsync({
+    const base = {
       cargo,
       externo,
       departamento: externo ? undefined : departamento || undefined,
       empresa: externo ? empresa || undefined : undefined,
       dataInicio,
       observacao: observacao || undefined,
-    });
-    setCargo('');
-    setDepartamento('');
-    setEmpresa('');
-    setDataInicio('');
-    setObservacao('');
+    };
+    if (editandoId) {
+      await updateMutation.mutateAsync({
+        id: editandoId,
+        input: { ...base, dataFim: cargoAtual ? null : dataFim || undefined },
+      });
+    } else {
+      await createMutation.mutateAsync({ ...base, dataFim: cargoAtual ? undefined : dataFim || undefined });
+    }
+    limparForm();
   }
 
   return (
@@ -228,20 +262,34 @@ function SecaoHistorico({
               </p>
               <p className="text-xs text-[var(--color-text-secondary)]">
                 {(item.externo ? item.empresa : item.departamento) ?? '—'} · desde {formatarData(item.dataInicio)}
-                {item.dataFim ? ` até ${formatarData(item.dataFim)}` : ''}
+                {item.dataFim ? ` até ${formatarData(item.dataFim)}` : ' · atual'}
               </p>
               {item.observacao && <p className="text-xs text-[var(--color-text-secondary)]">{item.observacao}</p>}
             </div>
             {podeAdministrar && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-[var(--color-danger)]"
-                onClick={() => deleteMutation.mutate(item.id)}
-                aria-label={`Excluir ${item.cargo}`}
-              >
-                <Trash2 aria-hidden="true" className="h-4 w-4" />
-              </Button>
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => iniciarEdicao(item)}
+                  aria-label={`Editar ${item.cargo}`}
+                >
+                  <Pencil aria-hidden="true" className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-[var(--color-danger)]"
+                  onClick={() => {
+                    if (editandoId === item.id) limparForm();
+                    deleteMutation.mutate(item.id);
+                  }}
+                  aria-label={`Excluir ${item.cargo}`}
+                >
+                  <Trash2 aria-hidden="true" className="h-4 w-4" />
+                </Button>
+              </div>
             )}
           </li>
         ))}
@@ -254,14 +302,20 @@ function SecaoHistorico({
         <div className="flex gap-1 border-b border-[var(--color-border)] sm:col-span-2">
           <button
             type="button"
-            onClick={() => setExterno(false)}
+            onClick={() => {
+              setExterno(false);
+              if (!editandoId) setCargoAtual(true);
+            }}
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-bold transition-colors ${!externo ? 'border-[var(--color-accent)] text-[var(--color-text-primary)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
           >
             Nesta empresa
           </button>
           <button
             type="button"
-            onClick={() => setExterno(true)}
+            onClick={() => {
+              setExterno(true);
+              if (!editandoId) setCargoAtual(false);
+            }}
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-bold transition-colors ${externo ? 'border-[var(--color-accent)] text-[var(--color-text-primary)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
           >
             Empresa anterior
@@ -282,12 +336,28 @@ function SecaoHistorico({
         <FormField label="Data de início" htmlFor="hist-inicio">
           <Input id="hist-inicio" type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} required />
         </FormField>
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+            <input type="checkbox" checked={cargoAtual} onChange={(e) => setCargoAtual(e.target.checked)} />
+            É o cargo atual
+          </label>
+          {!cargoAtual && (
+            <FormField label="Data final" htmlFor="hist-fim">
+              <Input id="hist-fim" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} required />
+            </FormField>
+          )}
+        </div>
         <FormField label="Observação (opcional)" htmlFor="hist-obs">
           <Input id="hist-obs" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
         </FormField>
         <FormActions>
-          <Button type="submit" disabled={createMutation.isPending}>
-            Adicionar ao histórico
+          {editandoId && (
+            <Button type="button" variant="ghost" onClick={limparForm}>
+              Cancelar
+            </Button>
+          )}
+          <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+            {editandoId ? 'Salvar alterações' : 'Adicionar ao histórico'}
           </Button>
         </FormActions>
       </form>
